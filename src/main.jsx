@@ -675,11 +675,12 @@ const Header = () => {
             {state.user?.name?.[0]}
           </div>
           {menuOpen && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', padding: '0.5rem', minWidth: '120px', zIndex: 9999 }}>
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', padding: '0.25rem', minWidth: '100px', zIndex: 9999, display: 'flex', justifyContent: 'center' }}>
               <button 
-                className="btn btn-danger" 
-                style={{ width: '100%', justifyContent: 'center', padding: '0.4rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px' }} 
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.4rem 0', fontSize: '0.8rem', background: 'transparent', color: 'var(--accent-danger)', border: 'none', cursor: 'pointer', fontWeight: 600, borderRadius: '6px', transition: 'background 0.2s' }} 
                 onClick={() => setState(s => ({...s, user: null}))}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <i className="ph ph-sign-out"></i> Sair
               </button>
