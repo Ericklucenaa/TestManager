@@ -51,7 +51,13 @@ const AppProvider = ({ children }) => {
   };
 
   const deleteItem = (type, id) => {
-    setState(s => ({ ...s, [type]: s[type].filter(item => item.id !== id) }));
+    setState(s => {
+      const newState = { ...s, [type]: s[type].filter(item => item.id !== id) };
+      if (type === 'requirements') {
+        newState.testCases = s.testCases.filter(tc => tc.requirementId !== id);
+      }
+      return newState;
+    });
     logAction(`Excluiu de ${type}`, id);
   };
 
