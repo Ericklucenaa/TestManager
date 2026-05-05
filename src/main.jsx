@@ -220,7 +220,16 @@ const TestCases = () => {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ title: '', requirementId: '', priority: 'Média', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
 
-  const filtered = state.testCases.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [ticketFilter, setTicketFilter] = useState('');
+  const [expandedTickets, setExpandedTickets] = useState({});
+
+  const toggleTicket = (ticketId) => setExpandedTickets(prev => ({ ...prev, [ticketId]: !prev[ticketId] }));
+
+  const filtered = state.testCases.filter(t => 
+    t.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    (ticketFilter === '' || t.requirementId === ticketFilter)
+  );
 
   const groupedTestCases = {};
   filtered.forEach(tc => {
@@ -263,34 +272,59 @@ const TestCases = () => {
 
   return (
     <div className="animate-fade">
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+        <span style={{ cursor: 'pointer' }} onClick={() => setCurrentView('dashboard')}>Dashboard</span>
+        <i className="ph ph-caret-right"></i>
+        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Requisitos</span>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <h3>Requisitos</h3>
-        <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo CT</button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)}>
+            <option value="">Todos os Tickets</option>
+            {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
+          </select>
+          <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo CT</button>
+        </div>
       </div>
       <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
         <table className="data-table">
-          <thead><tr><th>Título</th><th>Prioridade</th><th>Status</th><th style={{ textAlign: 'right' }}>Ações</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'center' }}>Ticket</th>
+              <th style={{ textAlign: 'center' }}>Título</th>
+              <th style={{ textAlign: 'center' }}>Prioridade</th>
+              <th style={{ textAlign: 'center' }}>Status</th>
+              <th style={{ textAlign: 'center' }}>Ações</th>
+            </tr>
+          </thead>
           <tbody>
             {Object.keys(groupedTestCases).map(ticketId => {
                const ticket = state.requirements.find(r => r.id === ticketId);
                const ticketName = ticket ? `${ticket.code} - ${ticket.title}` : 'Sem Ticket Vinculado';
+               const isExpanded = expandedTickets[ticketId];
                return (
                  <React.Fragment key={ticketId}>
-                   <tr>
-                     <td colSpan="4" style={{ background: 'var(--accent-secondary)', color: 'white', fontWeight: 'bold', padding: '0.5rem' }}>
-                       {ticketName}
+                   <tr style={{ cursor: 'pointer', background: 'var(--accent-secondary)', color: 'white', fontWeight: 'bold' }} onClick={() => toggleTicket(ticketId)}>
+                     <td colSpan="5" style={{ padding: '0.5rem', textAlign: 'center' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                         <i className={`ph ph-caret-${isExpanded ? 'down' : 'right'}`}></i>
+                         {ticketName} ({groupedTestCases[ticketId].length})
+                       </div>
                      </td>
                    </tr>
-                   {groupedTestCases[ticketId].map(t => (
+                   {isExpanded && groupedTestCases[ticketId].map(t => (
                      <tr key={t.id}>
-                       <td style={{ fontWeight: 600 }}>{t.title}</td>
-                       <td><Badge>{t.priority}</Badge></td>
-                       <td><Badge>{t.status}</Badge></td>
-                       <td style={{ textAlign: 'right' }}>
-                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                       <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--accent-primary)' }}>{ticket ? ticket.code : '-'}</td>
+                       <td style={{ textAlign: 'center', fontWeight: 600 }}>{t.title}</td>
+                       <td style={{ textAlign: 'center' }}><Badge>{t.priority}</Badge></td>
+                       <td style={{ textAlign: 'center' }}><Badge>{t.status}</Badge></td>
+                       <td style={{ textAlign: 'center' }}>
+                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                            <button className="btn" onClick={() => openEdit(t)} style={{ padding: '0.5rem', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)' }} title="Editar"><i className="ph ph-pencil"></i></button>
                            <button className="btn btn-primary" onClick={() => { setViewParams(t.id); setCurrentView('runner'); }} style={{ padding: '0.5rem' }} title="Executar"><i className="ph ph-play"></i></button>
-                           <button className="btn btn-danger" onClick={() => deleteItem('testCases', t.id)} style={{ padding: '0.5rem' }} title="Excluir"><i className="ph ph-trash"></i></button>
+                           <button className="btn btn-danger" onClick={() => setDeleteConfirm(t.id)} style={{ padding: '0.5rem' }} title="Excluir"><i className="ph ph-trash"></i></button>
                          </div>
                        </td>
                      </tr>
@@ -333,6 +367,14 @@ const TestCases = () => {
             <button type="submit" className="btn btn-primary">{editingId ? "Atualizar CT" : "Salvar CT"}</button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Confirmar Exclusão">
+        <p>Tem certeza que deseja excluir este requisito?</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+          <button type="button" className="btn" onClick={() => setDeleteConfirm(null)}>Cancelar</button>
+          <button type="button" className="btn btn-danger" onClick={() => { deleteItem('testCases', deleteConfirm); setDeleteConfirm(null); }}>Excluir</button>
+        </div>
       </Modal>
     </div>
   );
