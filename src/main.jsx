@@ -532,15 +532,15 @@ const SpreadsheetView = () => {
             <button className="btn btn-primary" onClick={exportPDF}><i className="ph ph-printer"></i> Exportar PDF</button>
           </div>
           <div className="spreadsheet-table-inner" style={{ overflow: 'auto', flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '12px' }}>
               <thead style={{ background: 'var(--accent-primary)', color: 'white', position: 'sticky', top: 0, zIndex: 10 }}>
                  <tr>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '50px', textAlign: 'center' }}>STEPS</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px' }}>Casos de Teste</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '20%' }}>Passos de Execução</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Resultado Esperado</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Resultado Atual</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '100px' }}>Status</th>
+                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', textAlign: 'center' }}>Casos de Teste</th>
+                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '20%', textAlign: 'center' }}>Passos de Execução</th>
+                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%', textAlign: 'center' }}>Resultado Esperado</th>
+                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%', textAlign: 'center' }}>Resultado Atual</th>
+                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '100px', textAlign: 'center' }}>Status</th>
                </tr>
             </thead>
             <tbody>
@@ -551,14 +551,14 @@ const SpreadsheetView = () => {
                  return (
                  <tr key={`${row.tcId}-${row.stepIdx}`} style={{ background: index % 2 === 0 ? '#eef8fc' : '#fff', color: '#333' }}>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{index + 1}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', fontWeight: row.tcTitle ? 'bold' : 'normal' }}>{row.tcTitle}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px' }}>{row.step.action}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px' }}>{row.step.expected}</td>
+                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center', fontWeight: row.tcTitle ? 'bold' : 'normal' }}>{row.tcTitle}</td>
+                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{row.step.action}</td>
+                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{row.step.expected}</td>
                     <td style={{ border: '1px solid #ccc', padding: '0' }}>
-                        <input value={row.step.actualResult || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'actualResult', e.target.value)} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none' }} placeholder="Inserir resultado..." />
+                        <input value={row.step.actualResult || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'actualResult', e.target.value)} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none', textAlign: 'center' }} placeholder="Inserir resultado..." />
                     </td>
                     <td style={{ border: '1px solid #ccc', padding: '0' }}>
-                        <select value={row.step.status} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'status', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', padding: '4px', fontWeight: 'bold', outline: 'none', color: isOk ? '#10b981' : isFalha ? '#ef4444' : '#64748b' }}>
+                        <select value={row.step.status} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'status', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', padding: '4px', fontWeight: 'bold', outline: 'none', textAlign: 'center', color: isOk ? '#10b981' : isFalha ? '#ef4444' : '#64748b' }}>
                             <option value="pending">Pendente</option>
                             <option value="passed">Ok</option>
                             <option value="failed">Falha</option>
