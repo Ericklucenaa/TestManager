@@ -536,7 +536,7 @@ const SpreadsheetView = () => {
               <thead style={{ background: 'var(--accent-primary)', color: 'white', position: 'sticky', top: 0, zIndex: 10 }}>
                  <tr>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '50px', textAlign: 'center' }}>STEPS</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px' }}>Título do Caso de Teste</th>
+                 <th style={{ border: '1px solid #ccc', padding: '6px 8px' }}>Casos de Teste</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '20%' }}>Passos de Execução</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Resultado Esperado</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Resultado Atual</th>
