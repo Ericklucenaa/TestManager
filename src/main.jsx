@@ -590,7 +590,7 @@ const SpreadsheetView = () => {
 
           <div style={{ background: '#fff', borderRadius: '4px', border: '1px solid #ccc', padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
              <div style={{ fontWeight: 'bold', color: '#555', marginBottom: '1.5rem', fontSize: '13px', textTransform: 'uppercase' }}>Gráfico de Execução</div>
-             <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: pieBg, marginBottom: '1.5rem', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)' }}></div>
+             <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: pieBg, marginBottom: '1.5rem', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
              <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#555', fontWeight: 'bold' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '10px', height: '10px', background: '#10b981', borderRadius: '2px' }}></div> Ok</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '2px' }}></div> Falha</div>
