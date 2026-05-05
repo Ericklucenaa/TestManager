@@ -520,36 +520,16 @@ const SpreadsheetView = () => {
      ? 'conic-gradient(#e2e8f0 0deg, #e2e8f0 360deg)' 
      : `conic-gradient(#10b981 0deg ${okDeg}deg, #ef4444 ${okDeg}deg ${falhaDeg}deg, #f59e0b ${falhaDeg}deg 360deg)`;
 
-  const exportCSV = () => {
-    const headers = ['STEPS', 'Título do Caso de Teste', 'Passos de Execução', 'Dados de Teste', 'Resultado Esperado', 'Resultado Atual', 'RN Atendida', 'Status'];
-    const rows = allSteps.map((row, index) => [
-      index + 1,
-      row.tcTitle || '',
-      row.step.action || '',
-      row.step.testData || '',
-      row.step.expected || '',
-      row.step.actualResult || '',
-      row.step.requirementRuleMet || '',
-      row.step.status || ''
-    ]);
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'planilha_execucao.csv';
-    link.click();
+  const exportPDF = () => {
+    window.print();
   };
 
   return (
-    <div className="animate-fade" style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: '1rem', fontFamily: 'Arial, sans-serif' }}>
+    <div className="animate-fade spreadsheet-container" style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: '1rem', fontFamily: 'Arial, sans-serif' }}>
        {/* Spreadsheet Area */}
-       <div style={{ flex: 1, overflow: 'auto', background: '#fff', borderRadius: '4px', border: '1px solid #ccc', display: 'flex', flexDirection: 'column' }}>
+       <div className="spreadsheet-table-wrapper" style={{ flex: 1, overflow: 'auto', background: '#fff', borderRadius: '4px', border: '1px solid #ccc', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '10px', display: 'flex', justifyContent: 'flex-end', borderBottom: '1px solid #ccc' }}>
-            <button className="btn btn-primary" onClick={exportCSV}><i className="ph ph-download-simple"></i> Exportar CSV</button>
+            <button className="btn btn-primary" onClick={exportPDF}><i className="ph ph-printer"></i> Exportar PDF</button>
           </div>
           <div style={{ overflow: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '900px' }}>

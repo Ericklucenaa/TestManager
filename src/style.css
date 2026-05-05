@@ -339,9 +339,12 @@ h1, h2, h3, h4, h5 {
   .sidebar, .header, .btn, .nav-menu {
     display: none !important;
   }
-  body {
+  body, #app, .main-content, .content-body {
     background: white !important;
     color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
   }
   .content-body {
     padding: 0;
@@ -350,5 +353,23 @@ h1, h2, h3, h4, h5 {
     border: 1px solid #ddd;
     box-shadow: none;
     background: white !important;
+  }
+  .spreadsheet-container {
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2rem !important;
+  }
+  .spreadsheet-panels {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 1rem !important;
+    flex-wrap: wrap !important;
+  }
+  .spreadsheet-table-wrapper {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
   }
 }
