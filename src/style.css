@@ -367,7 +367,7 @@ h1, h2, h3, h4, h5 {
     gap: 1rem !important;
     flex-wrap: wrap !important;
   }
-  .spreadsheet-table-wrapper {
+  .spreadsheet-table-wrapper, .spreadsheet-table-inner {
     height: auto !important;
     overflow: visible !important;
     display: block !important;

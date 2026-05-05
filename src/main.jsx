@@ -531,7 +531,7 @@ const SpreadsheetView = () => {
           <div style={{ padding: '10px', display: 'flex', justifyContent: 'flex-end', borderBottom: '1px solid #ccc' }}>
             <button className="btn btn-primary" onClick={exportPDF}><i className="ph ph-printer"></i> Exportar PDF</button>
           </div>
-          <div style={{ overflow: 'auto', flex: 1 }}>
+          <div className="spreadsheet-table-inner" style={{ overflow: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '900px' }}>
               <thead style={{ background: 'var(--accent-primary)', color: 'white', position: 'sticky', top: 0, zIndex: 10 }}>
                  <tr>
