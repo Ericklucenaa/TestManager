@@ -281,11 +281,11 @@ const TestCases = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <h3>Requisitos</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} style={{ width: '140px', color: 'var(--accent-secondary)', borderColor: 'var(--accent-secondary)', backgroundColor: 'rgba(249, 115, 22, 0.05)', fontWeight: 'bold', cursor: 'pointer' }}>
-            <option value="">Todos os Tickets</option>
-            {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
+          <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} style={{ width: '140px', color: 'white', borderColor: 'var(--accent-secondary)', backgroundColor: 'var(--accent-secondary)', fontWeight: 'bold', cursor: 'pointer' }}>
+            <option value="" style={{ color: '#333', background: '#fff' }}>Todos os Tickets</option>
+            {state.requirements.map(r => <option key={r.id} value={r.id} style={{ color: '#333', background: '#fff' }}>{r.code} - {r.title}</option>)}
           </select>
-          <button className="btn btn-primary" onClick={openNew} style={{ width: '140px', justifyContent: 'center' }}><i className="ph ph-plus"></i> Novo CT</button>
+          <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo CT</button>
         </div>
       </div>
       <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
