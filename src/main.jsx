@@ -422,6 +422,11 @@ const Runner = () => {
 
   return (
     <div className="animate-fade">
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+        <span style={{ cursor: 'pointer' }} onClick={() => setCurrentView('testCases')}>Requisitos</span>
+        <i className="ph ph-caret-right"></i>
+        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Execução</span>
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <div>
           <h3>Execução: {tc.title}</h3>
