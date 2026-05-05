@@ -307,8 +307,8 @@ const TestCases = () => {
                return (
                  <React.Fragment key={ticketId}>
                    <tr style={{ cursor: 'pointer', background: 'var(--accent-secondary)', color: 'white', fontWeight: 'bold' }} onClick={() => toggleTicket(ticketId)}>
-                     <td colSpan="5" style={{ padding: '0.5rem', textAlign: 'center' }}>
-                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                     <td colSpan="5" style={{ padding: '0.5rem', textAlign: 'left' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.5rem' }}>
                          <i className={`ph ph-caret-${isExpanded ? 'down' : 'right'}`}></i>
                          {ticketName} ({groupedTestCases[ticketId].length})
                        </div>
