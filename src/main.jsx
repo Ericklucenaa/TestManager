@@ -643,8 +643,20 @@ const Sidebar = () => {
 const Header = () => {
   const { searchQuery, setSearchQuery, state, setState, setSidebarOpen } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <header className="header">
+    <header className="header" style={{ position: 'relative', zIndex: 100 }}>
       <button className="menu-toggle" onClick={() => setSidebarOpen(true)}><i className="ph ph-list"></i></button>
       <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
         <i className="ph ph-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }}></i>
@@ -655,7 +667,7 @@ const Header = () => {
           <div style={{ fontWeight: 700 }}>{state.user?.name}</div>
           <div style={{ opacity: 0.5 }}>{state.user?.role}</div>
         </div>
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} ref={menuRef}>
           <div 
             style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, cursor: 'pointer', color: 'white' }}
             onClick={() => setMenuOpen(!menuOpen)}
@@ -663,10 +675,10 @@ const Header = () => {
             {state.user?.name?.[0]}
           </div>
           {menuOpen && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', padding: '0.5rem', minWidth: '150px', zIndex: 50 }}>
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', padding: '0.5rem', minWidth: '120px', zIndex: 9999 }}>
               <button 
-                className="btn" 
-                style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--accent-danger)', background: 'transparent', padding: '0.5rem 1rem' }} 
+                className="btn btn-danger" 
+                style={{ width: '100%', justifyContent: 'center', padding: '0.4rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px' }} 
                 onClick={() => setState(s => ({...s, user: null}))}
               >
                 <i className="ph ph-sign-out"></i> Sair
