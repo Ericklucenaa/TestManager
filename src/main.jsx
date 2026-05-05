@@ -636,15 +636,13 @@ const Sidebar = () => {
       <nav className="nav-menu">
         {menu.map(m => <a key={m.id} className={`nav-item ${currentView === m.id ? 'active' : ''}`} onClick={() => { setCurrentView(m.id); setSidebarOpen(false); }}><i className={m.icon}></i> {m.label}</a>)}
       </nav>
-      <div style={{ marginTop: 'auto' }}>
-        <button className="btn" style={{ background: 'transparent', width: '100%', justifyContent: 'flex-start', color: 'var(--accent-danger)' }} onClick={() => setState(s => ({...s, user: null}))}><i className="ph ph-sign-out"></i> Sair</button>
-      </div>
     </aside>
   );
 };
 
 const Header = () => {
-  const { searchQuery, setSearchQuery, state, setSidebarOpen } = useApp();
+  const { searchQuery, setSearchQuery, state, setState, setSidebarOpen } = useApp();
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header className="header">
       <button className="menu-toggle" onClick={() => setSidebarOpen(true)}><i className="ph ph-list"></i></button>
@@ -657,7 +655,25 @@ const Header = () => {
           <div style={{ fontWeight: 700 }}>{state.user?.name}</div>
           <div style={{ opacity: 0.5 }}>{state.user?.role}</div>
         </div>
-        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>{state.user?.name?.[0]}</div>
+        <div style={{ position: 'relative' }}>
+          <div 
+            style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, cursor: 'pointer', color: 'white' }}
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {state.user?.name?.[0]}
+          </div>
+          {menuOpen && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', padding: '0.5rem', minWidth: '150px', zIndex: 50 }}>
+              <button 
+                className="btn" 
+                style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--accent-danger)', background: 'transparent', padding: '0.5rem 1rem' }} 
+                onClick={() => setState(s => ({...s, user: null}))}
+              >
+                <i className="ph ph-sign-out"></i> Sair
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
