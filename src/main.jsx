@@ -538,10 +538,8 @@ const SpreadsheetView = () => {
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '50px', textAlign: 'center' }}>STEPS</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px' }}>Título do Caso de Teste</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '20%' }}>Passos de Execução</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Dados de Teste</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Resultado Esperado</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '15%' }}>Resultado Atual</th>
-                 <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '80px', textAlign: 'center' }}>RN Atendida</th>
                  <th style={{ border: '1px solid #ccc', padding: '6px 8px', width: '100px' }}>Status</th>
                </tr>
             </thead>
@@ -555,15 +553,9 @@ const SpreadsheetView = () => {
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{index + 1}</td>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', fontWeight: row.tcTitle ? 'bold' : 'normal' }}>{row.tcTitle}</td>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px' }}>{row.step.action}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '0' }}>
-                        <input value={row.step.testData || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'testData', e.target.value)} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none' }} placeholder="Inserir dados..." />
-                    </td>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px' }}>{row.step.expected}</td>
                     <td style={{ border: '1px solid #ccc', padding: '0' }}>
                         <input value={row.step.actualResult || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'actualResult', e.target.value)} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none' }} placeholder="Inserir resultado..." />
-                    </td>
-                    <td style={{ border: '1px solid #ccc', padding: '0' }}>
-                        <input value={row.step.requirementRuleMet || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'requirementRuleMet', e.target.value)} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none', textAlign: 'center' }} placeholder="RN-XXX" />
                     </td>
                     <td style={{ border: '1px solid #ccc', padding: '0' }}>
                         <select value={row.step.status} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'status', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', padding: '4px', fontWeight: 'bold', outline: 'none', color: isOk ? '#10b981' : isFalha ? '#ef4444' : '#64748b' }}>
@@ -574,7 +566,7 @@ const SpreadsheetView = () => {
                     </td>
                  </tr>
               )})}
-              {allSteps.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>Nenhum passo de teste encontrado.</td></tr>}
+              {allSteps.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Nenhum passo de teste encontrado.</td></tr>}
             </tbody>
           </table>
           </div>
