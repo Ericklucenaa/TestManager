@@ -54,7 +54,12 @@ const AppProvider = ({ children }) => {
     setState(s => {
       const newState = { ...s, [type]: s[type].filter(item => item.id !== id) };
       if (type === 'requirements') {
+        const deletedTestCases = s.testCases.filter(tc => tc.requirementId === id);
+        const deletedTcIds = new Set(deletedTestCases.map(tc => tc.id));
         newState.testCases = s.testCases.filter(tc => tc.requirementId !== id);
+        newState.bugs = s.bugs.filter(b => !deletedTcIds.has(b.caseId));
+      } else if (type === 'testCases') {
+        newState.bugs = s.bugs.filter(b => b.caseId !== id);
       }
       return newState;
     });
@@ -407,7 +412,7 @@ const Bugs = () => {
   const { state, deleteItem } = useApp();
   return (
     <div className="animate-fade">
-      <h3>Central de Defeitos</h3>
+      <h3>Central de Bugs</h3>
       <div className="stat-card" style={{ padding: 0, marginTop: '2rem' }}>
         <table className="data-table">
           <thead><tr><th>ID</th><th>Título</th><th>Status</th><th>Ações</th></tr></thead>
@@ -603,7 +608,7 @@ const Sidebar = () => {
     { id: 'requirements', label: 'Tickets', icon: 'ph ph-scroll' },
     { id: 'testCases', label: 'Requisitos', icon: 'ph ph-test-tube' },
     { id: 'spreadsheet', label: 'Planilha', icon: 'ph ph-table' },
-    { id: 'bugs', label: 'Defeitos', icon: 'ph ph-bug' },
+    { id: 'bugs', label: 'Bugs', icon: 'ph ph-bug' },
     { id: 'audit', label: 'Auditoria', icon: 'ph ph-fingerprint' }
   ];
   return (
