@@ -281,7 +281,7 @@ const TestCases = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <h3>Requisitos</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} style={{ width: 'auto', minWidth: '200px', color: 'var(--accent-secondary)', borderColor: 'var(--accent-secondary)', backgroundColor: 'rgba(249, 115, 22, 0.05)', fontWeight: 'bold' }}>
+          <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} style={{ width: 'auto', minWidth: '140px', maxWidth: '250px', color: 'var(--accent-secondary)', borderColor: 'var(--accent-secondary)', backgroundColor: 'rgba(249, 115, 22, 0.05)', fontWeight: 'bold', padding: '0.5rem 1rem' }}>
             <option value="">Todos os Tickets</option>
             {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
           </select>
