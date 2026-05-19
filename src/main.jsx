@@ -139,21 +139,6 @@ const Dashboard = () => {
         </div>
       </div>
       
-      <div className="stat-card">
-        <h3>Logs de Auditoria</h3>
-        <div style={{ marginTop: '1.5rem' }}>
-          {state.auditLogs.slice(0, 8).map(log => (
-            <div key={log.id} style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-               <div>
-                 <span style={{ fontWeight: 600 }}>{log.userName}</span> <span style={{ opacity: 0.8 }}>{log.action}</span>
-                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>UUID: {log.targetId}</div>
-               </div>
-               <div style={{ fontSize: '0.8rem', opacity: 0.5 }}>{new Date(log.timestamp).toLocaleTimeString()}</div>
-            </div>
-          ))}
-          {state.auditLogs.length === 0 && <p style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>Sem atividades recentes.</p>}
-        </div>
-      </div>
     </div>
   );
 };
@@ -162,24 +147,48 @@ const Dashboard = () => {
 const Requirements = () => {
   const { state, setState, searchQuery, deleteItem, logAction } = useApp();
   const [modal, setModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ code: '', title: '', description: '' });
 
   const filtered = state.requirements.filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.code.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  const openNew = () => {
+    setEditingId(null);
+    setForm({ code: '', title: '', description: '' });
+    setModal(true);
+  };
+
+  const openEdit = (req) => {
+    setEditingId(req.id);
+    setForm({ code: req.code, title: req.title, description: req.description });
+    setModal(true);
+  };
+
   const save = (e) => {
     e.preventDefault();
-    const id = crypto.randomUUID();
-    setState(s => ({ ...s, requirements: [...s.requirements, { ...form, id }] }));
-    logAction('Criou Ticket', id);
+    if (editingId) {
+      setState(s => {
+        const newReqs = [...s.requirements];
+        const idx = newReqs.findIndex(r => r.id === editingId);
+        newReqs[idx] = { ...newReqs[idx], ...form };
+        return { ...s, requirements: newReqs };
+      });
+      logAction('Editou Ticket', editingId);
+    } else {
+      const id = crypto.randomUUID();
+      setState(s => ({ ...s, requirements: [...s.requirements, { ...form, id }] }));
+      logAction('Criou Ticket', id);
+    }
     setModal(false);
     setForm({ code: '', title: '', description: '' });
+    setEditingId(null);
   };
 
   return (
     <div className="animate-fade">
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <h3>Mapeamento de Tickets</h3>
-        <button className="btn btn-primary" onClick={() => setModal(true)}><i className="ph ph-plus"></i> Novo Ticket</button>
+        <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo Ticket</button>
       </div>
       <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
         <table className="data-table">
@@ -191,14 +200,17 @@ const Requirements = () => {
                 <td style={{ fontWeight: 600 }}>{r.title}</td>
                 <td style={{ fontSize: '0.85rem', opacity: 0.7 }}>{r.description}</td>
                 <td style={{ textAlign: 'right' }}>
-                  <button className="btn btn-danger" onClick={() => deleteItem('requirements', r.id)} style={{ padding: '0.5rem' }}><i className="ph ph-trash"></i></button>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <button className="btn" onClick={() => openEdit(r)} style={{ padding: '0.5rem', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)' }} title="Editar"><i className="ph ph-pencil"></i></button>
+                    <button className="btn btn-danger" onClick={() => deleteItem('requirements', r.id)} style={{ padding: '0.5rem' }} title="Excluir"><i className="ph ph-trash"></i></button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <Modal isOpen={modal} onClose={() => setModal(false)} title="Novo Ticket">
+      <Modal isOpen={modal} onClose={() => setModal(false)} title={editingId ? "Editar Ticket" : "Novo Ticket"}>
         <form onSubmit={save}>
           <div className="form-group"><label className="form-label">Código</label><input className="form-input" required value={form.code} onChange={e => setForm({...form, code: e.target.value})} /></div>
           <div className="form-group"><label className="form-label">Título</label><input className="form-input" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
@@ -224,7 +236,20 @@ const TestCases = () => {
   const [ticketFilter, setTicketFilter] = useState('');
   const [expandedTickets, setExpandedTickets] = useState({});
 
-  const toggleTicket = (ticketId) => setExpandedTickets(prev => ({ ...prev, [ticketId]: !prev[ticketId] }));
+  const toggleTicket = (ticketId) => {
+    setExpandedTickets(prev => ({ ...prev, [ticketId]: !prev[ticketId] }));
+  };
+
+  const toggleAllTickets = () => {
+    const allExpanded = Object.keys(groupedTestCases).length > 0 && Object.keys(groupedTestCases).every(key => expandedTickets[key]);
+    if (allExpanded) {
+      setExpandedTickets({});
+    } else {
+      const newExpanded = {};
+      Object.keys(groupedTestCases).forEach(key => newExpanded[key] = true);
+      setExpandedTickets(newExpanded);
+    }
+  };
 
   const filtered = state.testCases.filter(t => 
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -278,7 +303,7 @@ const TestCases = () => {
         <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Requisitos</span>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
         <h3>Requisitos</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} style={{ width: 'auto', maxWidth: '300px', color: 'white', borderColor: 'var(--accent-secondary)', backgroundColor: 'var(--accent-secondary)', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -287,6 +312,12 @@ const TestCases = () => {
           </select>
           <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo CT</button>
         </div>
+      </div>
+      
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+        <button className="btn btn-soft" onClick={toggleAllTickets} style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}>
+          <i className="ph ph-list-plus"></i> {Object.keys(groupedTestCases).length > 0 && Object.keys(groupedTestCases).every(key => expandedTickets[key]) ? 'Recolher Todos' : 'Expandir Todos'}
+        </button>
       </div>
       <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
         <table className="data-table">
@@ -391,7 +422,8 @@ const Runner = () => {
     setState(s => {
       const tcIdx = s.testCases.findIndex(t => t.id === tc.id);
       const newTCs = [...s.testCases];
-      newTCs[tcIdx].steps[idx].status = status;
+      const currentStatus = newTCs[tcIdx].steps[idx].status;
+      newTCs[tcIdx].steps[idx].status = currentStatus === status ? 'pending' : status;
       return { ...s, testCases: newTCs };
     });
   };
@@ -462,16 +494,21 @@ const Bugs = () => {
       <h3>Central de Bugs</h3>
       <div className="stat-card" style={{ padding: 0, marginTop: '2rem' }}>
         <table className="data-table">
-          <thead><tr><th>ID</th><th>Título</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Ticket</th><th>Título</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
-            {state.bugs.map(b => (
+            {state.bugs.map(b => {
+              const tc = state.testCases.find(t => t.id === b.caseId);
+              const req = tc ? state.requirements.find(r => r.id === tc.requirementId) : null;
+              const ticketCode = req ? req.code : 'N/A';
+              return (
               <tr key={b.id}>
-                <td style={{ fontSize: '0.75rem', opacity: 0.5 }}>{b.id.substring(0,8)}</td>
+                <td style={{ fontWeight: 900, color: 'var(--accent-primary)', fontFamily: 'monospace' }} title={`Bug ID: ${b.id}`}>{ticketCode}</td>
                 <td style={{ fontWeight: 600 }}>{b.title}</td>
                 <td><Badge>{b.status}</Badge></td>
                 <td><button className="btn btn-danger" onClick={() => deleteItem('bugs', b.id)}><i className="ph ph-trash"></i></button></td>
               </tr>
-            ))}
+              );
+            })}
             {state.bugs.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>Nenhum bug encontrado.</td></tr>}
           </tbody>
         </table>
@@ -490,7 +527,7 @@ const SpreadsheetView = () => {
     tc.steps.forEach((st, i) => {
       allSteps.push({
         tcId: tc.id,
-        tcTitle: i === 0 ? tc.title : '',
+        tcTitle: tc.title,
         stepIdx: i,
         step: st
       });
@@ -529,7 +566,7 @@ const SpreadsheetView = () => {
        {/* Spreadsheet Area */}
        <div className="spreadsheet-table-wrapper" style={{ flex: 1, overflow: 'auto', background: '#fff', borderRadius: '4px', border: '1px solid #ccc', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '10px', display: 'flex', justifyContent: 'flex-end', borderBottom: '1px solid #ccc' }}>
-            <button className="btn btn-primary" onClick={exportPDF}><i className="ph ph-printer"></i> Exportar PDF</button>
+            <button className="btn btn-primary" onClick={exportPDF}>Exportar PDF</button>
           </div>
           <div className="spreadsheet-table-inner" style={{ overflow: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '12px' }}>
@@ -612,7 +649,7 @@ const LoginView = () => {
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
       <div className="stat-card" style={{ width: '400px', padding: '3rem', textAlign: 'center' }}>
         <i className="ph-fill ph-shield-check" style={{ fontSize: '3rem', color: 'var(--accent-primary)', marginBottom: '1.5rem' }}></i>
-        <h2 style={{ marginBottom: '2rem' }}>Login QualityOps</h2>
+        <h2 style={{ marginBottom: '2rem' }}>Login Test Manager</h2>
         <input type="text" className="form-input" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && setState(s => ({...s, user: { name: name || 'QA', role: 'Admin' }}))} />
         <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setState(s => ({...s, user: { name: name || 'QA', role: 'Admin' }}))}>Entrar</button>
       </div>
@@ -622,19 +659,29 @@ const LoginView = () => {
 
 const Sidebar = () => {
   const { currentView, setCurrentView, state, setState, setSidebarOpen, isSidebarOpen } = useApp();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const menu = [
     { id: 'dashboard', label: 'Dashboard', icon: 'ph-fill ph-chart-pie' },
     { id: 'requirements', label: 'Tickets', icon: 'ph ph-scroll' },
     { id: 'testCases', label: 'Requisitos', icon: 'ph ph-test-tube' },
     { id: 'spreadsheet', label: 'Planilha', icon: 'ph ph-table' },
-    { id: 'bugs', label: 'Bugs', icon: 'ph ph-bug' },
-    { id: 'audit', label: 'Auditoria', icon: 'ph ph-fingerprint' }
+    { id: 'bugs', label: 'Bugs', icon: 'ph ph-bug' }
   ];
   return (
-    <aside className={`sidebar ${isSidebarOpen ? 'active' : ''}`}>
-      <div style={{ fontWeight: 900, fontSize: '1.5rem', marginBottom: '2.5rem', color: 'var(--text-primary)' }}>QOps<span style={{ color: 'var(--accent-primary)' }}>.</span></div>
+    <aside className={`sidebar ${isSidebarOpen ? 'active' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', marginBottom: '2.5rem' }}>
+        {!isCollapsed && <div style={{ fontWeight: 900, fontSize: '1.5rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>Test Manager</div>}
+        <button className="btn-icon" onClick={() => setIsCollapsed(!isCollapsed)} title="Alternar Menu">
+          <i className="ph ph-list"></i>
+        </button>
+      </div>
       <nav className="nav-menu">
-        {menu.map(m => <a key={m.id} className={`nav-item ${currentView === m.id ? 'active' : ''}`} onClick={() => { setCurrentView(m.id); setSidebarOpen(false); }}><i className={m.icon}></i> {m.label}</a>)}
+        {menu.map(m => (
+          <a key={m.id} className={`nav-item ${currentView === m.id ? 'active' : ''}`} onClick={() => { setCurrentView(m.id); setSidebarOpen(false); }} title={isCollapsed ? m.label : ''}>
+            <i className={m.icon} style={{ fontSize: '1.2rem', minWidth: '1.2rem' }}></i> 
+            {!isCollapsed && <span style={{ whiteSpace: 'nowrap' }}>{m.label}</span>}
+          </a>
+        ))}
       </nav>
     </aside>
   );
@@ -695,7 +742,7 @@ const Header = () => {
 const Main = () => {
   const { currentView, state } = useApp();
   if (!state.user) return <LoginView />;
-  const Content = { dashboard: Dashboard, requirements: Requirements, testCases: TestCases, runner: Runner, bugs: Bugs, audit: Dashboard, spreadsheet: SpreadsheetView }[currentView] || Dashboard;
+  const Content = { dashboard: Dashboard, requirements: Requirements, testCases: TestCases, runner: Runner, bugs: Bugs, spreadsheet: SpreadsheetView }[currentView] || Dashboard;
   return (
     <div id="app">
       <Sidebar />
