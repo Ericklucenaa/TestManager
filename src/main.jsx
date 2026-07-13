@@ -1237,6 +1237,9 @@ const SpreadsheetView = () => {
                 <option value="">Todos os Tickets</option>
                 {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
               </select>
+              <button className="btn btn-secondary" onClick={() => { setFilterUser(''); setFilterReq(''); }} style={{ color: '#333', background: '#e2e8f0', border: '1px solid #ccc' }} title="Limpar Filtros">
+                <i className="ph ph-eraser"></i> Limpar Filtro
+              </button>
             </div>
             <button className="btn btn-primary" onClick={exportPDF}>Exportar PDF</button>
           </div>
