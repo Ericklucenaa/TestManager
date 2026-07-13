@@ -1,6 +1,24 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import ReactDOM from 'react-dom/client';
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import './style.css';
+
+const firebaseConfig = {
+  projectId: "test-manager-8484d",
+  appId: "1:904173341193:web:8fc5b68cbe58b487cd06d8",
+  storageBucket: "test-manager-8484d.firebasestorage.app",
+  apiKey: "AIzaSyB9qc8ejoVx8wNdZIWlb76anr9Lpi8MJKU",
+  authDomain: "test-manager-8484d.firebaseapp.com",
+  messagingSenderId: "904173341193",
+  measurementId: "G-8MPGTP0F2B",
+  projectNumber: "904173341193"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
 
 // --- Storage & Context ---
 const STORAGE_KEY = 'test_manager_v5';
@@ -8,62 +26,118 @@ const STORAGE_KEY = 'test_manager_v5';
 const AppContext = createContext();
 
 const AppProvider = ({ children }) => {
-  const [state, setState] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {
-      projects: [{ id: '1', name: 'Nexus Core', environment: 'Production', description: 'Sistema Principal' }],
-      requirements: [{ id: 'req_1', code: 'REQ-01', title: 'Autenticação', description: 'Login Seguro' }],
-      testCases: [
-        { 
-          id: 'tc_1', 
-          requirementId: 'req_1', 
-          title: 'Validar Login Admin', 
-          priority: 'Alta', 
-          status: 'Não executado',
-          steps: [
-            { action: 'Digitar user admin', expected: 'Campo preenchido', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' },
-            { action: 'Digitar senha 123', expected: 'Campo oculto', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' },
-            { action: 'Clicar Entrar', expected: 'Dashboard visível', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }
-          ]
-        }
-      ],
-      bugs: [],
-      auditLogs: [],
-      sessions: [],
-      theme: 'dark',
-      currentExecutionInfo: { ticketRef: '', responsible: '', date: new Date().toISOString().split('T')[0], environment: '' },
-      user: null
-    };
+  const [state, setState] = useState({
+    projects: [{ id: '1', name: 'Nexus Core', environment: 'Production', description: 'Sistema Principal' }],
+    requirements: [], testCases: [], bugs: [], auditLogs: [], sessions: [],
+    theme: 'dark',
+    currentExecutionInfo: { ticketRef: '', responsible: '', date: new Date().toISOString().split('T')[0], environment: '' },
+    user: null
   });
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [isAuthLoaded, setIsAuthLoaded] = useState(false);
 
   const [currentView, setCurrentView] = useState('dashboard');
   const [viewParams, setViewParams] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTimers, setActiveTimers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('test_manager_timers');
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return {};
+  });
+  const [fullScreenImage, setFullScreenImage] = useState(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    const interval = setInterval(() => {
+      setActiveTimers(prev => {
+        let changed = false;
+        const next = { ...prev };
+        for (const tcId in next) {
+          if (next[tcId].isRunning) {
+            next[tcId] = { ...next[tcId], elapsedTime: next[tcId].elapsedTime + 1 };
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('test_manager_timers', JSON.stringify(activeTimers));
+    const runningTimers = Object.values(activeTimers).filter(t => t.isRunning);
+    if (runningTimers.length > 0) {
+      document.title = `(${formatTime(runningTimers[0].elapsedTime)}) Test Manager`;
+    } else {
+      document.title = 'Test Manager';
+    }
+  }, [activeTimers]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setState(s => ({ ...s, user: { uid: user.uid, name: user.displayName || user.email.split('@')[0], email: user.email } }));
+      } else {
+        setState(s => ({ ...s, user: null }));
+      }
+      setIsAuthLoaded(true);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!state.user) {
+      setIsDataLoaded(true);
+      return;
+    }
+    const unsubReqs = onSnapshot(collection(db, 'requirements'), (snap) => {
+      setState(s => ({ ...s, requirements: snap.docs.map(d => ({id: d.id, ...d.data()})) }));
+    });
+    const unsubTestCases = onSnapshot(collection(db, 'testCases'), (snap) => {
+      setState(s => ({ ...s, testCases: snap.docs.map(d => ({id: d.id, ...d.data()})) }));
+    });
+    const unsubBugs = onSnapshot(collection(db, 'bugs'), (snap) => {
+      setState(s => ({ ...s, bugs: snap.docs.map(d => ({id: d.id, ...d.data()})) }));
+    });
+    const unsubLogs = onSnapshot(collection(db, 'auditLogs'), (snap) => {
+      setState(s => ({ ...s, auditLogs: snap.docs.map(d => ({id: d.id, ...d.data()})) }));
+    });
+    
+    setIsDataLoaded(true);
+    return () => { unsubReqs(); unsubTestCases(); unsubBugs(); unsubLogs(); };
+  }, [state.user?.uid]);
 
   const logAction = (action, targetId) => {
-    const log = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), userName: state.user?.name || 'Sistema', action, targetId };
-    setState(s => ({ ...s, auditLogs: [log, ...s.auditLogs] }));
+    const id = crypto.randomUUID();
+    const log = { id, timestamp: new Date().toISOString(), userName: state.user?.name || 'Sistema', action, targetId };
+    setDoc(doc(db, 'auditLogs', id), log).catch(console.error);
   };
 
-  const deleteItem = (type, id) => {
-    setState(s => {
-      const newState = { ...s, [type]: s[type].filter(item => item.id !== id) };
+  const deleteItem = async (type, id) => {
+    try {
+      await deleteDoc(doc(db, type, id));
       if (type === 'requirements') {
-        const deletedTestCases = s.testCases.filter(tc => tc.requirementId === id);
-        const deletedTcIds = new Set(deletedTestCases.map(tc => tc.id));
-        newState.testCases = s.testCases.filter(tc => tc.requirementId !== id);
-        newState.bugs = s.bugs.filter(b => !deletedTcIds.has(b.caseId));
+        const deletedTestCases = state.testCases.filter(tc => tc.requirementId === id);
+        for (const tc of deletedTestCases) {
+          await deleteDoc(doc(db, 'testCases', tc.id));
+          const deletedBugs = state.bugs.filter(b => b.caseId === tc.id);
+          for (const b of deletedBugs) {
+             await deleteDoc(doc(db, 'bugs', b.id));
+          }
+        }
       } else if (type === 'testCases') {
-        newState.bugs = s.bugs.filter(b => b.caseId !== id);
+        const deletedBugs = state.bugs.filter(b => b.caseId === id);
+        for (const b of deletedBugs) {
+           await deleteDoc(doc(db, 'bugs', b.id));
+        }
       }
-      return newState;
-    });
-    logAction(`Excluiu de ${type}`, id);
+      logAction(`Excluiu de ${type}`, id);
+    } catch(e) {
+      console.error(e);
+    }
   };
 
   const updateExecutionInfo = (field, value) => {
@@ -76,13 +150,64 @@ const AppProvider = ({ children }) => {
   const value = {
     state, setState, currentView, setCurrentView, viewParams, setViewParams,
     searchQuery, setSearchQuery, isSidebarOpen, setSidebarOpen, logAction, deleteItem,
-    updateExecutionInfo
+    updateExecutionInfo, activeTimers, setActiveTimers, fullScreenImage, setFullScreenImage
   };
+
+  if (!isAuthLoaded || !isDataLoaded || !state) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-primary)', flexDirection: 'column', gap: '1rem' }}>
+      <i className="ph ph-spinner ph-spin" style={{ fontSize: '3rem', color: 'var(--accent-primary)' }}></i>
+      <h2>Sincronizando com a Nuvem...</h2>
+    </div>;
+  }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
 const useApp = () => useContext(AppContext);
+
+// --- Util Functions ---
+export const formatTime = (seconds) => {
+  if (seconds === undefined) return '-';
+  const hrs = Math.floor(seconds / 3600).toString().padStart(2, '0');
+  const mins = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${hrs}:${mins}:${secs}`;
+};
+
+export const compressImage = (file, maxSize = 1200) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height *= maxSize / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width *= maxSize / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 // --- UI Components ---
 
@@ -128,7 +253,12 @@ const Dashboard = () => {
             <h4 style={{ color: 'var(--text-secondary)' }}>BUGS ATIVOS</h4>
             <i className="ph ph-bug-beetle" style={{ color: 'var(--accent-danger)' }}></i>
           </div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginTop: '0.5rem', color: 'var(--accent-danger)' }}>{state.bugs.filter(b => b.status === 'Aberto').length}</div>
+          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginTop: '0.5rem', color: 'var(--accent-danger)' }}>
+            {state.bugs.filter(b => {
+              const tc = state.testCases.find(t => t.id === b.caseId);
+              return b.status === 'Aberto' && tc && tc.status === 'Reprovado';
+            }).length}
+          </div>
         </div>
         <div className="stat-card">
            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -144,65 +274,124 @@ const Dashboard = () => {
 };
 
 // --- View: Requirements ---
+const TeamDropdown = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const teams = ["Equipe Compor Engenharia", "Equipe Compor Backoffice", "Equipe WEB - APP", "Equipe WEB - Gestão Obras", "Equipe WEB - Cadastro", "Equipe WEB - Suprimentos", "Equipe Orçamento/Checklist"];
+  const filtered = teams.filter(t => t.toLowerCase().includes((value || '').toLowerCase()));
+
+  return (
+    <div style={{ position: 'relative', zIndex: 999 }}>
+      <input 
+        className="form-input" 
+        placeholder="Selecione ou digite a equipe..." 
+        value={value} 
+        onChange={e => { onChange(e.target.value); setIsOpen(true); }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+      />
+      <i className="ph ph-caret-down" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }}></i>
+      {isOpen && filtered.length > 0 && (
+        <div className="animate-fade" style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', zIndex: 1000, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+          {filtered.map(t => (
+            <div 
+              key={t} 
+              style={{ padding: '0.8rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-primary)', transition: 'background 0.2s' }}
+              onMouseDown={(e) => { e.preventDefault(); onChange(t); setIsOpen(false); }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              {t}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Requirements = () => {
-  const { state, setState, searchQuery, deleteItem, logAction } = useApp();
+  const { state, setState, deleteItem, logAction } = useApp();
   const [modal, setModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ code: '', title: '', description: '' });
+  const [form, setForm] = useState({ code: '', title: '', description: '', team: '' });
+  const [filters, setFilters] = useState({ text: '', user: '', team: '' });
 
-  const filtered = state.requirements.filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.code.toLowerCase().includes(searchQuery.toLowerCase()));
+  const uniqueUsers = [...new Set(state.requirements.map(r => r.createdBy).filter(Boolean))];
+  const uniqueTeams = [...new Set(state.requirements.map(r => r.team).filter(Boolean))];
+
+  const filtered = state.requirements.filter(r => {
+    const matchText = r.title.toLowerCase().includes(filters.text.toLowerCase()) || r.code.toLowerCase().includes(filters.text.toLowerCase()) || r.description.toLowerCase().includes(filters.text.toLowerCase());
+    const matchUser = filters.user ? r.createdBy === filters.user : true;
+    const matchTeam = filters.team ? r.team === filters.team : true;
+    return matchText && matchUser && matchTeam;
+  });
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ code: '', title: '', description: '' });
+    setForm({ code: '', title: '', description: '', team: '' });
     setModal(true);
   };
 
   const openEdit = (req) => {
     setEditingId(req.id);
-    setForm({ code: req.code, title: req.title, description: req.description });
+    setForm({ code: req.code, title: req.title, description: req.description, team: req.team || '' });
     setModal(true);
   };
 
-  const save = (e) => {
+  const save = async (e) => {
     e.preventDefault();
     if (editingId) {
-      setState(s => {
-        const newReqs = [...s.requirements];
-        const idx = newReqs.findIndex(r => r.id === editingId);
-        newReqs[idx] = { ...newReqs[idx], ...form };
-        return { ...s, requirements: newReqs };
-      });
+      await setDoc(doc(db, 'requirements', editingId), { ...form, id: editingId, updatedBy: state.user?.name || 'Sistema' }, { merge: true });
       logAction('Editou Ticket', editingId);
     } else {
       const id = crypto.randomUUID();
-      setState(s => ({ ...s, requirements: [...s.requirements, { ...form, id }] }));
+      await setDoc(doc(db, 'requirements', id), { ...form, id, createdBy: state.user?.name || 'Sistema' });
       logAction('Criou Ticket', id);
     }
     setModal(false);
-    setForm({ code: '', title: '', description: '' });
+    setForm({ code: '', title: '', description: '', team: '' });
     setEditingId(null);
   };
 
   return (
     <div className="animate-fade">
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
         <h3>Mapeamento de Tickets</h3>
         <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo Ticket</button>
       </div>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', background: 'var(--surface-solid)', padding: '1rem', borderRadius: '8px' }}>
+        <input className="form-input" placeholder="Pesquisar por Código, Título ou Descrição..." value={filters.text} onChange={e => setFilters({...filters, text: e.target.value})} style={{ flex: 2 }} />
+        <select className="form-select" value={filters.user} onChange={e => setFilters({...filters, user: e.target.value})} style={{ flex: 1 }}>
+          <option value="">Todos os Usuários</option>
+          {uniqueUsers.map(u => <option key={u} value={u}>{u}</option>)}
+        </select>
+        <select className="form-select" value={filters.team} onChange={e => setFilters({...filters, team: e.target.value})} style={{ flex: 1 }}>
+          <option value="">Todas as Equipes</option>
+          {uniqueTeams.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
       <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
         <table className="data-table">
-          <thead><tr><th>Código</th><th>Título</th><th>Descrição</th><th style={{ textAlign: 'right' }}>Ações</th></tr></thead>
+          <thead><tr><th>Código</th><th>Título</th><th>Descrição</th><th>Equipe</th><th>Criador</th><th style={{ textAlign: 'right' }}>Ações</th></tr></thead>
           <tbody>
             {filtered.map(r => (
               <tr key={r.id}>
                 <td style={{ fontWeight: 900, color: 'var(--accent-primary)', fontFamily: 'monospace' }}>{r.code}</td>
                 <td style={{ fontWeight: 600 }}>{r.title}</td>
                 <td style={{ fontSize: '0.85rem', opacity: 0.7 }}>{r.description}</td>
+                <td><Badge>{r.team || '-'}</Badge></td>
+                <td style={{ fontSize: '0.85rem' }}>{r.createdBy || '-'}</td>
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button className="btn" onClick={() => openEdit(r)} style={{ padding: '0.5rem', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)' }} title="Editar"><i className="ph ph-pencil"></i></button>
-                    <button className="btn btn-danger" onClick={() => deleteItem('requirements', r.id)} style={{ padding: '0.5rem' }} title="Excluir"><i className="ph ph-trash"></i></button>
+                    {(() => {
+                      const canEdit = state.user?.name && r.createdBy === state.user.name;
+                      return (
+                        <>
+                          <button className="btn" onClick={() => { if (!canEdit) { alert('Acesso negado: Apenas o criador deste ticket pode editá-lo.'); return; } openEdit(r); }} style={{ padding: '0.5rem', border: '1px solid var(--border-color)', background: canEdit ? 'transparent' : 'var(--surface-solid)', color: canEdit ? 'var(--text-secondary)' : 'var(--text-muted)', opacity: canEdit ? 1 : 0.4, cursor: canEdit ? 'pointer' : 'not-allowed' }} title={canEdit ? "Editar" : "Apenas o criador pode editar"}><i className="ph ph-pencil"></i></button>
+                          <button className={`btn ${canEdit ? 'btn-danger' : ''}`} onClick={() => { if (!canEdit) { alert('Acesso negado: Apenas o criador deste ticket pode excluí-lo.'); return; } deleteItem('requirements', r.id); }} style={{ padding: '0.5rem', opacity: canEdit ? 1 : 0.4, cursor: canEdit ? 'pointer' : 'not-allowed', background: canEdit ? '' : 'var(--surface-solid)', color: canEdit ? '' : 'var(--text-secondary)', border: canEdit ? '' : '1px solid var(--border-color)' }} title={canEdit ? "Excluir" : "Apenas o criador pode excluir"}><i className="ph ph-trash"></i></button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </td>
               </tr>
@@ -212,11 +401,18 @@ const Requirements = () => {
       </div>
       <Modal isOpen={modal} onClose={() => setModal(false)} title={editingId ? "Editar Ticket" : "Novo Ticket"}>
         <form onSubmit={save}>
-          <div className="form-group"><label className="form-label">Código</label><input className="form-input" required value={form.code} onChange={e => setForm({...form, code: e.target.value})} /></div>
+          <div className="form-group"><label className="form-label">Código</label><input type="text" inputMode="numeric" pattern="[0-9]*" className="form-input" required value={form.code} onChange={e => setForm({...form, code: e.target.value.replace(/\D/g, '')})} /></div>
           <div className="form-group"><label className="form-label">Título</label><input className="form-input" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
-          <div className="form-group"><label className="form-label">Descrição</label><textarea className="form-textarea" rows="3" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <button type="button" className="btn" onClick={() => setModal(false)}>Cancelar</button>
+          <div className="form-group" style={{ position: 'relative', zIndex: 999 }}>
+            <label className="form-label">Equipe</label>
+            <TeamDropdown value={form.team} onChange={(val) => setForm({...form, team: val})} />
+          </div>
+          <div className="form-group" style={{ position: 'relative', zIndex: 1 }}>
+            <label className="form-label">Descrição</label>
+            <textarea className="form-textarea" rows="3" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', position: 'relative', zIndex: 1 }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
             <button type="submit" className="btn btn-primary">Salvar</button>
           </div>
         </form>
@@ -226,11 +422,105 @@ const Requirements = () => {
 };
 
 // --- View: TestCases ---
+const TicketDropdown = ({ requirements, value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const selectedReq = requirements.find(r => r.id === value);
+  const displayValue = isOpen ? search : (selectedReq ? `${selectedReq.code} - ${selectedReq.title}` : (value ? '' : 'Todos os Tickets'));
+
+  const filtered = requirements.filter(r => {
+    const term = search.toLowerCase();
+    return r.code.toLowerCase().includes(term) || r.title.toLowerCase().includes(term);
+  });
+
+  return (
+    <div style={{ position: 'relative', zIndex: 999, width: '300px' }}>
+      <input 
+        className="form-input" 
+        placeholder="Pesquisar ticket..." 
+        value={displayValue} 
+        onChange={e => { setSearch(e.target.value); setIsOpen(true); if (value) onChange(''); }}
+        onFocus={() => { setIsOpen(true); setSearch(''); }}
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        style={{ color: 'white', borderColor: 'var(--accent-secondary)', backgroundColor: 'var(--accent-secondary)', fontWeight: 'bold', cursor: 'pointer', paddingRight: '2rem' }}
+      />
+      {value ? (
+        <i className="ph ph-x" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }} onClick={() => { onChange(''); setSearch(''); }}></i>
+      ) : (
+        <i className="ph ph-caret-down" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.8)', pointerEvents: 'none' }}></i>
+      )}
+      
+      {isOpen && (
+        <div className="animate-fade" style={{ position: 'absolute', top: '100%', right: 0, width: '100%', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', zIndex: 1000, maxHeight: '300px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)', textAlign: 'left' }}>
+          <div 
+            style={{ padding: '0.8rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-primary)', transition: 'background 0.2s', fontWeight: value === '' ? 'bold' : 'normal' }}
+            onMouseDown={(e) => { e.preventDefault(); onChange(''); setIsOpen(false); }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            Todos os Tickets
+          </div>
+          {filtered.length > 0 ? filtered.map(r => (
+            <div 
+              key={r.id} 
+              style={{ padding: '0.8rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-primary)', transition: 'background 0.2s', fontWeight: value === r.id ? 'bold' : 'normal' }}
+              onMouseDown={(e) => { e.preventDefault(); onChange(r.id); setIsOpen(false); }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <div style={{ color: 'var(--accent-primary)', fontSize: '0.85rem' }}>{r.code}</div>
+              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
+            </div>
+          )) : (
+            <div style={{ padding: '1rem', textAlign: 'center', opacity: 0.5, fontSize: '0.9rem' }}>Nenhum ticket encontrado</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const UserDropdown = ({ users, value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const filtered = users.filter(u => u.toLowerCase().includes((value || '').toLowerCase()));
+
+  return (
+    <div style={{ position: 'relative', zIndex: 998 }}>
+      <input 
+        className="form-input" 
+        placeholder="Selecione ou digite o nome do usuário..." 
+        value={value} 
+        onChange={e => { onChange(e.target.value); setIsOpen(true); }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+      />
+      <i className="ph ph-caret-down" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }}></i>
+      {isOpen && filtered.length > 0 && (
+        <div className="animate-fade" style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', zIndex: 1000, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+          {filtered.map(u => (
+            <div 
+              key={u} 
+              style={{ padding: '0.8rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-primary)', transition: 'background 0.2s' }}
+              onMouseDown={(e) => { e.preventDefault(); onChange(u); setIsOpen(false); }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              {u}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const TestCases = () => {
-  const { state, setState, searchQuery, deleteItem, logAction, setCurrentView, setViewParams } = useApp();
+  const { state, setState, searchQuery, deleteItem, logAction, setCurrentView, setViewParams, setFullScreenImage } = useApp();
   const [modal, setModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ title: '', requirementId: '', priority: 'Média', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
+  const [activeModalTab, setActiveModalTab] = useState('details');
 
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [ticketFilter, setTicketFilter] = useState('');
@@ -267,29 +557,39 @@ const TestCases = () => {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ title: '', requirementId: '', priority: 'Média', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
+    setForm({ title: '', requirementId: '', priority: 'Média', linkedUser: '', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
+    setActiveModalTab('details');
     setModal(true);
   };
 
   const openEdit = (tc) => {
     setEditingId(tc.id);
-    setForm({ title: tc.title, requirementId: tc.requirementId, priority: tc.priority, steps: JSON.parse(JSON.stringify(tc.steps)) });
+    setForm({ title: tc.title, requirementId: tc.requirementId, priority: tc.priority, linkedUser: tc.linkedUser || '', steps: JSON.parse(JSON.stringify(tc.steps)) });
+    setActiveModalTab('details');
     setModal(true);
   };
 
-  const save = (e) => {
+  const save = async (e) => {
     e.preventDefault();
     if (editingId) {
-      setState(s => {
-        const newTCs = [...s.testCases];
-        const idx = newTCs.findIndex(t => t.id === editingId);
-        newTCs[idx] = { ...newTCs[idx], ...form };
-        return { ...s, testCases: newTCs };
-      });
+      const steps = form.steps || [];
+      const hasFail = steps.some(st => st.status === 'failed');
+      const hasPass = steps.some(st => st.status === 'passed');
+      const allPass = steps.length > 0 && steps.every(st => st.status === 'passed');
+      const allPending = steps.every(st => st.status === 'pending');
+      
+      const oldTC = state.testCases.find(t => t.id === editingId) || {};
+      let newStatus = oldTC.status;
+      if (allPending) newStatus = 'Não executado';
+      else if (allPass) newStatus = 'Aprovado';
+      else if (hasFail) newStatus = 'Reprovado';
+      else if (hasPass) newStatus = 'Parcial';
+      
+      await setDoc(doc(db, 'testCases', editingId), { ...form, id: editingId, status: newStatus }, { merge: true });
       logAction('Editou Caso de Teste', editingId);
     } else {
       const id = crypto.randomUUID();
-      setState(s => ({ ...s, testCases: [...s.testCases, { ...form, id, status: 'Não executado' }] }));
+      await setDoc(doc(db, 'testCases', id), { ...form, id, status: 'Não executado', createdBy: state.user?.name || 'Sistema' });
       logAction('Criou Caso de Teste', id);
     }
     setModal(false);
@@ -306,10 +606,7 @@ const TestCases = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
         <h3>Requisitos</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select className="form-select" value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} style={{ width: 'auto', maxWidth: '300px', color: 'white', borderColor: 'var(--accent-secondary)', backgroundColor: 'var(--accent-secondary)', fontWeight: 'bold', cursor: 'pointer' }}>
-            <option value="" style={{ color: '#333', background: '#fff' }}>Todos os Tickets</option>
-            {state.requirements.map(r => <option key={r.id} value={r.id} style={{ color: '#333', background: '#fff' }}>{r.code} - {r.title}</option>)}
-          </select>
+          <TicketDropdown requirements={state.requirements} value={ticketFilter} onChange={setTicketFilter} />
           <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo CT</button>
         </div>
       </div>
@@ -326,6 +623,7 @@ const TestCases = () => {
               <th style={{ textAlign: 'center' }}>Ticket</th>
               <th style={{ textAlign: 'center' }}>Título</th>
               <th style={{ textAlign: 'center' }}>Prioridade</th>
+              <th style={{ textAlign: 'center' }}>Tempo</th>
               <th style={{ textAlign: 'center' }}>Status</th>
               <th style={{ textAlign: 'center' }}>Ações</th>
             </tr>
@@ -337,8 +635,8 @@ const TestCases = () => {
                const isExpanded = expandedTickets[ticketId];
                return (
                  <React.Fragment key={ticketId}>
-                   <tr style={{ cursor: 'pointer', background: 'var(--accent-secondary)', color: 'white', fontWeight: 'bold' }} onClick={() => toggleTicket(ticketId)}>
-                     <td colSpan="5" style={{ padding: '0.5rem', textAlign: 'left' }}>
+                    <tr style={{ cursor: 'pointer', background: 'var(--accent-secondary)', color: 'white', fontWeight: 'bold' }} onClick={() => toggleTicket(ticketId)}>
+                      <td colSpan="6" style={{ padding: '0.5rem', textAlign: 'left' }}>
                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.5rem' }}>
                          <i className={`ph ph-caret-${isExpanded ? 'down' : 'right'}`}></i>
                          {ticketName} ({groupedTestCases[ticketId].length})
@@ -347,15 +645,73 @@ const TestCases = () => {
                    </tr>
                    {isExpanded && groupedTestCases[ticketId].map(t => (
                      <tr key={t.id}>
-                       <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--accent-primary)' }}>{ticket ? ticket.code : '-'}</td>
-                       <td style={{ textAlign: 'center', fontWeight: 600 }}>{t.title}</td>
-                       <td style={{ textAlign: 'center' }}><Badge>{t.priority}</Badge></td>
-                       <td style={{ textAlign: 'center' }}><Badge>{t.status}</Badge></td>
-                       <td style={{ textAlign: 'center' }}>
-                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                           <button className="btn" onClick={() => openEdit(t)} style={{ padding: '0.5rem', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)' }} title="Editar"><i className="ph ph-pencil"></i></button>
-                           <button className="btn btn-primary" onClick={() => { setViewParams(t.id); setCurrentView('runner'); }} style={{ padding: '0.5rem' }} title="Executar"><i className="ph ph-play"></i></button>
-                           <button className="btn btn-danger" onClick={() => setDeleteConfirm(t.id)} style={{ padding: '0.5rem' }} title="Excluir"><i className="ph ph-trash"></i></button>
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--accent-primary)' }}>{ticket ? ticket.code : '-'}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{t.title}</td>
+                        <td style={{ textAlign: 'center' }}><Badge>{t.priority}</Badge></td>
+                        <td style={{ textAlign: 'center' }}>{t.executionTime !== undefined ? formatTime(t.executionTime) : '-'}</td>
+                        <td style={{ textAlign: 'center' }}><Badge>{t.status}</Badge></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                           {(() => {
+                             const tcOwner = t.createdBy || ticket?.createdBy;
+                             const canEdit = state.user?.name && (tcOwner === state.user.name || t.linkedUser === state.user.name);
+                             return (
+                               <button 
+                                 className="btn" 
+                                 onClick={() => {
+                                   if (!canEdit) {
+                                     alert(`Acesso negado: Apenas o criador (${tcOwner || 'N/A'}) ou o usuário vinculado podem editar este caso de teste.`);
+                                     return;
+                                   }
+                                   openEdit(t);
+                                 }} 
+                                 style={{ padding: '0.5rem', border: '1px solid var(--border-color)', background: canEdit ? 'transparent' : 'var(--surface-solid)', color: canEdit ? 'var(--text-secondary)' : 'var(--text-muted)', opacity: canEdit ? 1 : 0.4, cursor: canEdit ? 'pointer' : 'not-allowed' }} 
+                                 title={canEdit ? "Editar" : `Apenas o criador ou usuário vinculado podem editar`}
+                               >
+                                 <i className="ph ph-pencil"></i>
+                               </button>
+                             );
+                           })()}
+                           {(() => {
+                             const canExecute = state.user?.name && (t.createdBy === state.user.name || ticket?.createdBy === state.user.name || t.linkedUser === state.user.name);
+                             return (
+                               <button 
+                                 className={`btn ${canExecute ? 'btn-primary' : ''}`} 
+                                 onClick={() => {
+                                   if (!canExecute) {
+                                     alert(`Acesso negado: Apenas o criador do caso de teste, do ticket, ou o usuário vinculado podem executar.`);
+                                     return;
+                                   }
+                                   setViewParams(t.id); 
+                                   setCurrentView('runner'); 
+                                 }} 
+                                 style={{ padding: '0.5rem', opacity: canExecute ? 1 : 0.4, cursor: canExecute ? 'pointer' : 'not-allowed', background: canExecute ? '' : 'var(--surface-solid)', color: canExecute ? '' : 'var(--text-secondary)', border: canExecute ? '' : '1px solid var(--border-color)' }} 
+                                 title={canExecute ? "Executar" : `Acesso restrito`}
+                               >
+                                 <i className="ph ph-play"></i>
+                               </button>
+                             );
+                           })()}
+                           {(() => {
+                             const tcOwner = t.createdBy || ticket?.createdBy;
+                             const canEdit = state.user?.name && (tcOwner === state.user.name || t.linkedUser === state.user.name);
+                             return (
+                               <button 
+                                 className={`btn ${canEdit ? 'btn-danger' : ''}`} 
+                                 onClick={() => {
+                                   if (!canEdit) {
+                                     alert(`Acesso negado: Apenas o criador (${tcOwner || 'N/A'}) ou o usuário vinculado podem excluir este caso de teste.`);
+                                     return;
+                                   }
+                                   setDeleteConfirm(t.id);
+                                 }} 
+                                 style={{ padding: '0.5rem', opacity: canEdit ? 1 : 0.4, cursor: canEdit ? 'pointer' : 'not-allowed', background: canEdit ? '' : 'var(--surface-solid)', color: canEdit ? '' : 'var(--text-secondary)', border: canEdit ? '' : '1px solid var(--border-color)' }} 
+                                 title={canEdit ? "Excluir" : `Apenas o criador ou usuário vinculado podem excluir`}
+                               >
+                                 <i className="ph ph-trash"></i>
+                               </button>
+                             );
+                           })()}
                          </div>
                        </td>
                      </tr>
@@ -367,37 +723,101 @@ const TestCases = () => {
         </table>
       </div>
       <Modal isOpen={modal} onClose={() => setModal(false)} title={editingId ? "Editar Caso de Teste" : "Novo Caso de Teste"}>
-        <form onSubmit={save}>
-          <div className="form-group"><label className="form-label">Título</label><input className="form-input" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
-          <div className="form-group">
-            <label className="form-label">Prioridade</label>
-            <select className="form-select" value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}>
-              <option>Alta</option><option>Média</option><option>Baixa</option>
-            </select>
+        {editingId && (
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
+            <button className="btn" onClick={() => setActiveModalTab('details')} style={{ background: 'transparent', border: 'none', borderBottom: activeModalTab === 'details' ? '2px solid var(--accent-primary)' : '2px solid transparent', borderRadius: 0, padding: '0.5rem 1rem', color: activeModalTab === 'details' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>Detalhes</button>
+            <button className="btn" onClick={() => setActiveModalTab('history')} style={{ background: 'transparent', border: 'none', borderBottom: activeModalTab === 'history' ? '2px solid var(--accent-primary)' : '2px solid transparent', borderRadius: 0, padding: '0.5rem 1rem', color: activeModalTab === 'history' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>Histórico de Execuções</button>
           </div>
-          <div className="form-group">
-            <label className="form-label">Vincular Ticket</label>
-            <select className="form-select" value={form.requirementId} onChange={e => setForm({...form, requirementId: e.target.value})}>
-              <option value="">Nenhum</option>
-              {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
-            </select>
+        )}
+        
+        {activeModalTab === 'details' ? (
+          <form onSubmit={save}>
+            <div className="form-group"><label className="form-label">Título</label><input className="form-input" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
+            <div className="form-group">
+              <label className="form-label">Prioridade</label>
+              <select className="form-select" value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}>
+                <option>Alta</option><option>Média</option><option>Baixa</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vincular Ticket</label>
+              <select className="form-select" value={form.requirementId} onChange={e => setForm({...form, requirementId: e.target.value})}>
+                <option value="">Nenhum</option>
+                {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vincular a Usuário (Opcional)</label>
+              <UserDropdown 
+                users={[...new Set([...state.requirements.map(r=>r.createdBy), ...state.testCases.map(t=>t.createdBy), ...state.testCases.map(t=>t.linkedUser)].filter(Boolean))]} 
+                value={form.linkedUser || ''} 
+                onChange={(val) => setForm({...form, linkedUser: val})} 
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label className="form-label">Passos do Teste</label>
+              {form.steps.map((st, i) => (
+                <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input className="form-input" placeholder="Ação" value={st.action} onChange={e => { const steps = [...form.steps]; steps[i].action = e.target.value; setForm({...form, steps}); }} />
+                  <input className="form-input" placeholder="Esperado" value={st.expected} onChange={e => { const steps = [...form.steps]; steps[i].expected = e.target.value; setForm({...form, steps}); }} />
+                  <button type="button" className="btn btn-danger" onClick={() => { const steps = form.steps.filter((_, idx) => idx !== i); setForm({...form, steps}); }} style={{ padding: '0.5rem' }} title="Remover Passo"><i className="ph ph-trash"></i></button>
+                </div>
+              ))}
+              <button type="button" className="btn" onClick={addStep} style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>+ Passo</button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary">{editingId ? "Atualizar CT" : "Salvar CT"}</button>
+            </div>
+          </form>
+        ) : (
+          <div>
+            {(() => {
+              const tc = state.testCases.find(t => t.id === editingId);
+              if (!tc || !tc.executions || tc.executions.length === 0) return <p style={{ color: 'var(--text-secondary)' }}>Nenhuma execução registrada.</p>;
+              
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '60vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                  {tc.executions.slice().reverse().map((exec, idx) => (
+                    <div key={exec.id} style={{ background: 'var(--surface-solid)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                        <div>
+                          <strong>Data:</strong> {new Date(exec.date).toLocaleString()}
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                          <span><strong>Tempo:</strong> {formatTime(exec.executionTime)}</span>
+                          <Badge>{exec.status}</Badge>
+                        </div>
+                      </div>
+                      <div>
+                        {exec.stepsSnapshot.map((st, i) => (
+                          <div key={i} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px dashed var(--border-color)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span><strong>Passo {i+1}:</strong> {st.action}</span>
+                              <Badge>{st.status}</Badge>
+                            </div>
+                            {(st.status === 'failed' || st.status === 'passed') && st.failureLog && (
+                              <div style={{ background: st.status === 'failed' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)', padding: '0.5rem', marginTop: '0.5rem', borderRadius: '4px', borderLeft: `3px solid ${st.status === 'failed' ? 'var(--accent-danger)' : 'var(--accent-success)'}` }}>
+                                {st.failureLog}
+                              </div>
+                            )}
+                            {st.evidences && st.evidences.length > 0 && (
+                              <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                {st.evidences.map((ev, evIdx) => (
+                                  <img key={evIdx} src={ev} alt="Evidência" onClick={() => setFullScreenImage(ev)} style={{ maxHeight: '80px', borderRadius: '4px', cursor: 'pointer', border: '1px solid var(--border-color)' }} title="Ampliar" />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <label className="form-label">Passos do Teste</label>
-            {form.steps.map((st, i) => (
-              <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <input className="form-input" placeholder="Ação" value={st.action} onChange={e => { const steps = [...form.steps]; steps[i].action = e.target.value; setForm({...form, steps}); }} />
-                <input className="form-input" placeholder="Esperado" value={st.expected} onChange={e => { const steps = [...form.steps]; steps[i].expected = e.target.value; setForm({...form, steps}); }} />
-                <button type="button" className="btn btn-danger" onClick={() => { const steps = form.steps.filter((_, idx) => idx !== i); setForm({...form, steps}); }} style={{ padding: '0.5rem' }} title="Remover Passo"><i className="ph ph-trash"></i></button>
-              </div>
-            ))}
-            <button type="button" className="btn" onClick={addStep} style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>+ Passo</button>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-            <button type="button" className="btn" onClick={() => setModal(false)}>Cancelar</button>
-            <button type="submit" className="btn btn-primary">{editingId ? "Atualizar CT" : "Salvar CT"}</button>
-          </div>
-        </form>
+        )}
       </Modal>
 
       <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Confirmar Exclusão">
@@ -413,42 +833,145 @@ const TestCases = () => {
 
 // --- View: Execution Runner ---
 const Runner = () => {
-  const { state, setState, viewParams, setCurrentView, logAction } = useApp();
+  const { state, setState, viewParams, setCurrentView, logAction, activeTimers, setActiveTimers, setFullScreenImage } = useApp();
   const tc = state.testCases.find(t => t.id === viewParams);
-  
-  if (!tc) return <div>CT não encontrado.</div>;
 
-  const updateStep = (idx, status) => {
-    setState(s => {
-      const tcIdx = s.testCases.findIndex(t => t.id === tc.id);
-      const newTCs = [...s.testCases];
-      const currentStatus = newTCs[tcIdx].steps[idx].status;
-      newTCs[tcIdx].steps[idx].status = currentStatus === status ? 'pending' : status;
-      return { ...s, testCases: newTCs };
+  const [localSteps, setLocalSteps] = useState(() => {
+    if (!tc) return [];
+    try {
+      const saved = localStorage.getItem(`test_manager_runner_${tc.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(tc.steps));
+  });
+
+  useEffect(() => {
+    if (tc) {
+      localStorage.setItem(`test_manager_runner_${tc.id}`, JSON.stringify(localSteps));
+    }
+  }, [localSteps, tc?.id]);
+  
+  useEffect(() => {
+    if (!tc) return;
+    setActiveTimers(prev => {
+      if (prev[tc.id]) return prev;
+      return { ...prev, [tc.id]: { title: tc.title, elapsedTime: tc.executionTime || 0, isRunning: false } };
+    });
+  }, [tc?.id]);
+
+  const timerState = activeTimers[tc?.id] || { elapsedTime: tc?.executionTime || 0, isRunning: false };
+  const elapsedTime = timerState.elapsedTime;
+  const isRunning = timerState.isRunning;
+
+  const toggleIsRunning = () => {
+    if (!timerState.isRunning) {
+      const isAnyOtherRunning = Object.entries(activeTimers).some(([id, t]) => id !== tc.id && t.isRunning);
+      if (isAnyOtherRunning) {
+        alert('Você já possui outro caso de teste em execução. Pause ou finalize-o antes de iniciar este.');
+        return;
+      }
+    }
+    setActiveTimers(prev => {
+      if (!prev[tc.id]) return prev;
+      return { ...prev, [tc.id]: { ...prev[tc.id], isRunning: !prev[tc.id].isRunning } };
     });
   };
 
-  const finish = () => {
-    const hasFail = tc.steps.some(s => s.status === 'failed');
-    const allPass = tc.steps.every(s => s.status === 'passed');
+  if (!tc) return <div>CT não encontrado.</div>;
+
+  const updateStep = (idx, field, value) => {
+    setLocalSteps(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: value };
+      return copy;
+    });
+  };
+
+  const handleStatusChange = (idx, status) => {
+    const currentStatus = localSteps[idx].status;
+    const newStatus = currentStatus === status ? 'pending' : status;
+    setLocalSteps(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], status: newStatus };
+      if (newStatus !== 'failed') copy[idx].failureLog = '';
+      return copy;
+    });
+  };
+
+  const handleFileUpload = async (idx, e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        const compressedBase64 = await compressImage(file);
+        setLocalSteps(prev => {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx] };
+          copy[idx].evidences = copy[idx].evidences || [];
+          copy[idx].evidences.push(compressedBase64);
+          return copy;
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setLocalSteps(prev => {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx] };
+            copy[idx].evidences = copy[idx].evidences || [];
+            copy[idx].evidences.push(reader.result);
+            return copy;
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+  
+  const removeEvidence = (stepIdx, evIdx) => {
+    setLocalSteps(prev => {
+      const copy = [...prev];
+      copy[stepIdx] = { ...copy[stepIdx] };
+      copy[stepIdx].evidences = copy[stepIdx].evidences.filter((_, i) => i !== evIdx);
+      return copy;
+    });
+  };
+
+  const finish = async () => {
+    const hasFail = localSteps.some(s => s.status === 'failed');
+    const allPass = localSteps.every(s => s.status === 'passed');
     const finalStatus = allPass ? 'Aprovado' : hasFail ? 'Reprovado' : 'Parcial';
     
-    setState(s => {
-      const tcIdx = s.testCases.findIndex(t => t.id === tc.id);
-      const newTCs = [...s.testCases];
-      newTCs[tcIdx].status = finalStatus;
-      
-      let newBugs = [...s.bugs];
-      if (hasFail) {
-        const bugId = crypto.randomUUID();
-        newBugs = [{ id: bugId, caseId: tc.id, title: `Falha: ${tc.title}`, status: 'Aberto', severity: 'Alta' }, ...newBugs];
-        logAction('Bug Automático detectado', bugId);
-      }
-      
-      return { ...s, testCases: newTCs, bugs: newBugs };
+    const bugAlreadyExists = state.bugs.some(b => b.caseId === tc.id && b.status === 'Aberto');
+    const shouldCreateBug = hasFail && !bugAlreadyExists;
+    const bugId = shouldCreateBug ? crypto.randomUUID() : null;
+
+    const executions = tc.executions || [];
+    executions.push({
+      id: crypto.randomUUID(),
+      date: new Date().toISOString(),
+      status: finalStatus,
+      executionTime: elapsedTime,
+      stepsSnapshot: JSON.parse(JSON.stringify(localSteps))
     });
+
+    await setDoc(doc(db, 'testCases', tc.id), { steps: localSteps, status: finalStatus, executionTime: elapsedTime, executions }, { merge: true });
+    
+    if (shouldCreateBug) {
+      await setDoc(doc(db, 'bugs', bugId), { id: bugId, caseId: tc.id, title: `Falha: ${tc.title}`, status: 'Aberto', severity: 'Alta', executionTime: elapsedTime });
+      logAction('Bug Automático detectado', bugId);
+    } else if (hasFail && bugAlreadyExists) {
+      const bug = state.bugs.find(b => b.caseId === tc.id && b.status === 'Aberto');
+      if (bug) await setDoc(doc(db, 'bugs', bug.id), { executionTime: elapsedTime }, { merge: true });
+    }
     
     logAction('Execução finalizada', tc.id);
+    localStorage.removeItem(`test_manager_runner_${tc.id}`);
+    setActiveTimers(prev => {
+      const next = { ...prev };
+      delete next[tc.id];
+      return next;
+    });
     setCurrentView('testCases');
   };
 
@@ -459,25 +982,66 @@ const Runner = () => {
         <i className="ph ph-caret-right"></i>
         <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Execução</span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <div>
-          <h3>Execução: {tc.title}</h3>
-          <p style={{ opacity: 0.5 }}>Ticket: {state.requirements.find(r => r.id === tc.requirementId)?.code || 'N/A'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+             <h3 style={{ margin: 0 }}>Execução: {tc.title}</h3>
+             <div style={{ background: 'var(--accent-primary)', padding: '0.25rem 0.75rem', borderRadius: '1rem', color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+               <i className="ph ph-timer"></i> {formatTime(elapsedTime)}
+               <button onClick={toggleIsRunning} title={isRunning ? "Pausar" : "Retomar"} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: 0, marginLeft: '4px', display: 'flex', alignItems: 'center' }}>
+                 <i className={isRunning ? "ph ph-pause-circle" : "ph ph-play-circle"} style={{ fontSize: '1.2rem' }}></i>
+               </button>
+             </div>
+          </div>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.35rem', opacity: 0.7, fontSize: '0.85rem' }}>
+            <span><i className="ph ph-tag"></i> Ticket: {state.requirements.find(r => r.id === tc.requirementId)?.code || 'N/A'}</span>
+            <span><i className="ph ph-clock-counter-clockwise"></i> Tempo Acumulado (Histórico): {formatTime(tc?.executions?.reduce((acc, e) => acc + (e.executionTime || 0), 0) || 0)}</span>
+          </div>
         </div>
-        <button className="btn" onClick={() => setCurrentView('testCases')}>Sair</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn" onClick={() => setCurrentView('testCases')} title="Sair sem fechar o timer">Sair</button>
+        </div>
       </div>
       
       <div style={{ maxWidth: '800px' }}>
-        {tc.steps.map((st, i) => (
-          <div key={i} className="stat-card" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>Passo {i+1}: {st.action}</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Esperado: {st.expected}</div>
+        {localSteps.map((st, i) => (
+          <div key={i} className="stat-card" style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>Passo {i+1}: {st.action}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Esperado: {st.expected}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn" onClick={() => handleStatusChange(i, 'passed')} style={{ background: st.status === 'passed' ? 'var(--accent-success)' : 'transparent', border: '1px solid var(--accent-success)', color: st.status === 'passed' ? 'white' : 'var(--accent-success)' }}><i className="ph ph-check"></i></button>
+                <button className="btn" onClick={() => handleStatusChange(i, 'failed')} style={{ background: st.status === 'failed' ? 'var(--accent-danger)' : 'transparent', border: '1px solid var(--accent-danger)', color: st.status === 'failed' ? 'white' : 'var(--accent-danger)' }}><i className="ph ph-x"></i></button>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn" onClick={() => updateStep(i, 'passed')} style={{ background: st.status === 'passed' ? 'var(--accent-success)' : 'transparent', border: '1px solid var(--accent-success)' }}><i className="ph ph-check"></i></button>
-              <button className="btn" onClick={() => updateStep(i, 'failed')} style={{ background: st.status === 'failed' ? 'var(--accent-danger)' : 'transparent', border: '1px solid var(--accent-danger)' }}><i className="ph ph-x"></i></button>
-            </div>
+            {st.status !== 'pending' && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--surface-solid)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                {(st.status === 'failed' || st.status === 'passed') && (
+                  <>
+                    <label className="form-label" style={{ color: st.status === 'failed' ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
+                      {st.status === 'failed' ? 'Motivo da Falha / Log' : 'Observação (Opcional)'}
+                    </label>
+                    <textarea className="form-textarea" rows="2" placeholder={st.status === 'failed' ? "Descreva o que aconteceu de errado..." : "Adicione alguma observação (opcional)..."} defaultValue={st.failureLog || ''} onBlur={e => updateStep(i, 'failureLog', e.target.value)} style={{ marginBottom: '1rem' }} />
+                  </>
+                )}
+                
+                <label className="form-label">Anexar Evidência (Imagens)</label>
+                <input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(i, e)} style={{ display: 'block', marginBottom: '0.5rem' }} />
+                
+                {st.evidences && st.evidences.length > 0 && (
+                  <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {st.evidences.map((ev, evIdx) => (
+                      <div key={evIdx} style={{ position: 'relative' }}>
+                        <img src={ev} alt="Evidência" style={{ maxHeight: '150px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }} onClick={() => setFullScreenImage(ev)} title="Clique para ampliar" />
+                        <button className="btn btn-danger" onClick={() => removeEvidence(i, evIdx)} style={{ position: 'absolute', top: '-8px', right: '-8px', padding: '0.4rem', borderRadius: '50%', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Remover Foto"><i className="ph ph-trash" style={{ fontSize: '1rem' }}></i></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         <button className="btn btn-primary" onClick={finish} style={{ width: '100%', padding: '1.25rem', marginTop: '1rem' }}>Finalizar Execução</button>
@@ -488,28 +1052,116 @@ const Runner = () => {
 
 // --- View: Bugs ---
 const Bugs = () => {
-  const { state, deleteItem } = useApp();
+  const { state, setCurrentView, setSearchQuery, setState } = useApp();
+  const [filter, setFilter] = useState('Abertos');
+  const [expandedBug, setExpandedBug] = useState(null);
+
+  const activeBugs = state.bugs.filter(b => {
+    if (filter === 'Abertos') return b.status === 'Aberto';
+    if (filter === 'Fechados') return b.status === 'Fechado';
+    return true; // Todos
+  });
+
+  const toggleStatus = async (bugId, currentStatus) => {
+    const newStatus = currentStatus === 'Aberto' ? 'Fechado' : 'Aberto';
+    await setDoc(doc(db, 'bugs', bugId), { status: newStatus }, { merge: true });
+  };
+
+
+
   return (
     <div className="animate-fade">
-      <h3>Central de Bugs</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>Central de Bugs</h3>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className={`btn ${filter === 'Abertos' ? 'btn-primary' : 'btn-soft'}`} onClick={() => setFilter('Abertos')}>Abertos</button>
+          <button className={`btn ${filter === 'Fechados' ? 'btn-primary' : 'btn-soft'}`} onClick={() => setFilter('Fechados')}>Fechados</button>
+          <button className={`btn ${filter === 'Todos' ? 'btn-primary' : 'btn-soft'}`} onClick={() => setFilter('Todos')}>Todos</button>
+        </div>
+      </div>
+      
       <div className="stat-card" style={{ padding: 0, marginTop: '2rem' }}>
         <table className="data-table">
-          <thead><tr><th>Ticket</th><th>Título</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Ticket</th><th>Título</th><th>Tempo Execução</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
-            {state.bugs.map(b => {
+            {activeBugs.map(b => {
               const tc = state.testCases.find(t => t.id === b.caseId);
               const req = tc ? state.requirements.find(r => r.id === tc.requirementId) : null;
               const ticketCode = req ? req.code : 'N/A';
+              const isExpanded = expandedBug === b.id;
+              
               return (
-              <tr key={b.id}>
-                <td style={{ fontWeight: 900, color: 'var(--accent-primary)', fontFamily: 'monospace' }} title={`Bug ID: ${b.id}`}>{ticketCode}</td>
-                <td style={{ fontWeight: 600 }}>{b.title}</td>
-                <td><Badge>{b.status}</Badge></td>
-                <td><button className="btn btn-danger" onClick={() => deleteItem('bugs', b.id)}><i className="ph ph-trash"></i></button></td>
-              </tr>
+                <React.Fragment key={b.id}>
+                  <tr style={{ background: isExpanded ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
+                    <td style={{ fontWeight: 900, color: 'var(--accent-primary)', fontFamily: 'monospace' }} title={`Bug ID: ${b.id}`}>{ticketCode}</td>
+                    <td style={{ fontWeight: 600 }}>{b.title}</td>
+                    <td>{tc && tc.executionTime !== undefined ? formatTime(tc.executionTime) : (b.executionTime !== undefined ? formatTime(b.executionTime) : '-')}</td>
+                    <td><Badge>{b.status}</Badge></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn btn-soft" onClick={() => toggleStatus(b.id, b.status)} title={b.status === 'Aberto' ? 'Fechar Bug' : 'Reabrir Bug'}>
+                          <i className={b.status === 'Aberto' ? 'ph ph-check-circle' : 'ph ph-arrow-counter-clockwise'} style={{ color: b.status === 'Aberto' ? 'var(--accent-success)' : 'var(--text-secondary)' }}></i>
+                        </button>
+                        <button className="btn btn-soft" onClick={() => setExpandedBug(isExpanded ? null : b.id)} title="Ver Detalhes/Logs">
+                          <i className={`ph ph-caret-${isExpanded ? 'up' : 'down'}`}></i> Logs
+                        </button>
+                        <button className="btn btn-soft" onClick={() => {
+                          if (tc) {
+                            setSearchQuery(tc.title);
+                            setCurrentView('testCases');
+                          }
+                        }} title="Ver no Requisitos">
+                          <i className="ph ph-arrow-square-out"></i> Abrir
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded && tc && (
+                    <tr>
+                      <td colSpan="5" style={{ padding: 0 }}>
+                        <div style={{ background: 'var(--bg-color)', padding: '1.5rem', borderBottom: '1px solid var(--border-color)', borderTop: '1px solid var(--border-color)' }}>
+                          <h4 style={{ margin: '0 0 1rem 0', color: 'var(--accent-danger)' }}><i className="ph ph-warning-circle"></i> Tabela de Logs de Falha</h4>
+                          {tc.steps.filter(st => st.status === 'failed').length === 0 ? (
+                            <p style={{ opacity: 0.6 }}>Nenhuma falha detalhada encontrada nos passos deste caso de teste.</p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                              {tc.steps.filter(st => st.status === 'failed').map((st, i) => (
+                                <div key={i} style={{ background: 'var(--surface-solid)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                  <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Ação: {st.action}</div>
+                                  <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Esperado: {st.expected}</div>
+                                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '4px', borderLeft: '3px solid var(--accent-danger)', marginBottom: '1rem' }}>
+                                    <strong>Log da Falha:</strong> {st.failureLog || 'Sem log fornecido.'}
+                                  </div>
+                                  {st.evidences && st.evidences.length > 0 && (
+                                    <div>
+                                      <strong>Evidências:</strong><br/>
+                                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                                        {st.evidences.map((ev, evIdx) => (
+                                          <img key={evIdx} src={ev} alt="Evidência" onClick={() => {
+                                            const newWindow = window.open();
+                                            if (newWindow) {
+                                              newWindow.document.write(`<body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0e1117;min-height:100vh;"><img id="ev-img" style="max-width:100%;max-height:100vh;" /></body>`);
+                                              newWindow.document.getElementById('ev-img').src = ev;
+                                              newWindow.document.title = "Evidência";
+                                              newWindow.document.close();
+                                            }
+                                          }} style={{ maxHeight: '150px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }} title="Clique para abrir numa nova guia" />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
-            {state.bugs.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>Nenhum bug encontrado.</td></tr>}
+            {activeBugs.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>Nenhum bug encontrado.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -522,8 +1174,18 @@ const SpreadsheetView = () => {
   const { state, setState, updateExecutionInfo } = useApp();
   const { currentExecutionInfo } = state;
 
+  const [filterUser, setFilterUser] = useState('');
+  const [filterReq, setFilterReq] = useState('');
+
+  const uniqueUsers = [...new Set(state.requirements.map(r => r.createdBy).filter(Boolean))];
+
   let allSteps = [];
   state.testCases.forEach(tc => {
+    const requirement = state.requirements.find(r => r.id === tc.requirementId);
+    
+    if (filterReq && requirement?.id !== filterReq) return;
+    if (filterUser && requirement?.createdBy !== filterUser) return;
+
     tc.steps.forEach((st, i) => {
       allSteps.push({
         tcId: tc.id,
@@ -565,7 +1227,17 @@ const SpreadsheetView = () => {
     <div className="animate-fade spreadsheet-container" style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: '1rem', fontFamily: 'Arial, sans-serif' }}>
        {/* Spreadsheet Area */}
        <div className="spreadsheet-table-wrapper" style={{ flex: 1, overflow: 'auto', background: '#fff', borderRadius: '4px', border: '1px solid #ccc', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px', display: 'flex', justifyContent: 'flex-end', borderBottom: '1px solid #ccc' }}>
+          <div className="no-print" style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #ccc', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ width: 'auto', minWidth: '200px', color: '#333', background: '#f8fafc', border: '1px solid #ccc' }}>
+                <option value="">Todos os Usuários</option>
+                {uniqueUsers.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <select className="form-select" value={filterReq} onChange={e => setFilterReq(e.target.value)} style={{ width: 'auto', minWidth: '250px', color: '#333', background: '#f8fafc', border: '1px solid #ccc' }}>
+                <option value="">Todos os Tickets</option>
+                {state.requirements.map(r => <option key={r.id} value={r.id}>{r.code} - {r.title}</option>)}
+              </select>
+            </div>
             <button className="btn btn-primary" onClick={exportPDF}>Exportar PDF</button>
           </div>
           <div className="spreadsheet-table-inner" style={{ overflow: 'auto', flex: 1 }}>
@@ -643,29 +1315,116 @@ const SpreadsheetView = () => {
 // --- Security & Shell ---
 
 const LoginView = () => {
-  const { setState } = useApp();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      if (isRegister) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: name });
+        // Force refresh state via auth listener
+        window.location.reload();
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
       <div className="stat-card" style={{ width: '400px', padding: '3rem', textAlign: 'center' }}>
         <i className="ph-fill ph-shield-check" style={{ fontSize: '3rem', color: 'var(--accent-primary)', marginBottom: '1.5rem' }}></i>
-        <h2 style={{ marginBottom: '2rem' }}>Login Test Manager</h2>
-        <input type="text" className="form-input" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && setState(s => ({...s, user: { name: name || 'QA', role: 'Admin' }}))} />
-        <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setState(s => ({...s, user: { name: name || 'QA', role: 'Admin' }}))}>Entrar</button>
+        <h2 style={{ marginBottom: '2rem' }}>{isRegister ? 'Criar Conta' : 'Login Test Manager'}</h2>
+        {error && <div style={{ color: 'var(--accent-danger)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
+        
+        <button className="btn btn-soft" onClick={handleGoogleLogin} style={{ width: '100%', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444' }}>
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '18px', height: '18px' }} />
+          Continuar com o Google
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', opacity: 0.5 }}>
+          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+          <span style={{ fontSize: '0.8rem' }}>OU</span>
+          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {isRegister && <input type="text" className="form-input" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} required />}
+          <input type="email" className="form-input" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} required />
+          <input type="password" className="form-input" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required />
+          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>{isRegister ? 'Cadastrar' : 'Entrar'}</button>
+        </form>
+        <div style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError(''); }} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>
+            {isRegister ? 'Já tenho uma conta' : 'Criar nova conta'}
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ProfileView = () => {
+  const { state } = useApp();
+  const [name, setName] = useState(state.user?.name || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      await updateProfile(auth.currentUser, { displayName: name });
+      alert('Perfil atualizado com sucesso! Recarregue a página para aplicar em todos os menus.');
+    } catch (e) {
+      alert(e.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="animate-fade" style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <h3 style={{ marginBottom: '2rem' }}>Meu Perfil</h3>
+      <div className="stat-card">
+        <label className="form-label">Nome de Exibição (Aparece nos Tickets)</label>
+        <input className="form-input" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: '1rem' }} />
+        <label className="form-label">E-mail</label>
+        <input className="form-input" value={state.user?.email || ''} disabled style={{ marginBottom: '2rem', opacity: 0.5 }} />
+        
+        <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
+          {loading ? 'Salvando...' : 'Salvar Alterações'}
+        </button>
       </div>
     </div>
   );
 };
 
 const Sidebar = () => {
-  const { currentView, setCurrentView, state, setState, setSidebarOpen, isSidebarOpen } = useApp();
+  const { currentView, setCurrentView, state, setState, setSidebarOpen, isSidebarOpen, setSearchQuery } = useApp();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const menu = [
     { id: 'dashboard', label: 'Dashboard', icon: 'ph-fill ph-chart-pie' },
     { id: 'requirements', label: 'Tickets', icon: 'ph ph-scroll' },
     { id: 'testCases', label: 'Requisitos', icon: 'ph ph-test-tube' },
     { id: 'spreadsheet', label: 'Planilha', icon: 'ph ph-table' },
-    { id: 'bugs', label: 'Bugs', icon: 'ph ph-bug' }
+    { id: 'bugs', label: 'Bugs', icon: 'ph ph-bug' },
+    { id: 'profile', label: 'Meu Perfil', icon: 'ph ph-user' }
   ];
   return (
     <aside className={`sidebar ${isSidebarOpen ? 'active' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
@@ -677,18 +1436,24 @@ const Sidebar = () => {
       </div>
       <nav className="nav-menu">
         {menu.map(m => (
-          <a key={m.id} className={`nav-item ${currentView === m.id ? 'active' : ''}`} onClick={() => { setCurrentView(m.id); setSidebarOpen(false); }} title={isCollapsed ? m.label : ''}>
+          <a key={m.id} className={`nav-item ${currentView === m.id ? 'active' : ''}`} onClick={() => { setCurrentView(m.id); setSearchQuery(''); setSidebarOpen(false); }} title={isCollapsed ? m.label : ''}>
             <i className={m.icon} style={{ fontSize: '1.2rem', minWidth: '1.2rem' }}></i> 
             {!isCollapsed && <span style={{ whiteSpace: 'nowrap' }}>{m.label}</span>}
           </a>
         ))}
       </nav>
+      <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
+        <a className="nav-item" onClick={() => signOut(auth)} title={isCollapsed ? "Sair" : ""} style={{ color: 'var(--accent-danger)' }}>
+          <i className="ph ph-sign-out" style={{ fontSize: '1.2rem', minWidth: '1.2rem' }}></i>
+          {!isCollapsed && <span style={{ whiteSpace: 'nowrap' }}>Sair</span>}
+        </a>
+      </div>
     </aside>
   );
 };
 
 const Header = () => {
-  const { searchQuery, setSearchQuery, state, setState, setSidebarOpen } = useApp();
+  const { searchQuery, setSearchQuery, state, setState, setSidebarOpen, currentView } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = React.useRef(null);
 
@@ -705,10 +1470,21 @@ const Header = () => {
   return (
     <header className="header" style={{ position: 'relative', zIndex: 100 }}>
       <button className="menu-toggle" onClick={() => setSidebarOpen(true)}><i className="ph ph-list"></i></button>
-      <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-        <i className="ph ph-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }}></i>
-        <input type="text" className="form-input" style={{ paddingLeft: '2.5rem' }} placeholder="Busca global..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-      </div>
+      
+      {currentView === 'testCases' ? (
+        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+          <i className="ph ph-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }}></i>
+          <input type="text" className="form-input" style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }} placeholder="Busca Titulo..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          {searchQuery && (
+            <button className="btn-icon" style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', padding: '4px', background: 'transparent', color: 'var(--text-secondary)' }} onClick={() => setSearchQuery('')}>
+              <i className="ph ph-x"></i>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{ flex: 1 }}></div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div style={{ textAlign: 'right', fontSize: '0.8rem' }} className="hide-mobile">
           <div style={{ fontWeight: 700 }}>{state.user?.name}</div>
@@ -725,7 +1501,7 @@ const Header = () => {
             <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', padding: '0.25rem', minWidth: '100px', zIndex: 9999, display: 'flex', justifyContent: 'center' }}>
               <button 
                 style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.4rem 0', fontSize: '0.8rem', background: 'transparent', color: 'var(--accent-danger)', border: 'none', cursor: 'pointer', fontWeight: 600, borderRadius: '6px', transition: 'background 0.2s' }} 
-                onClick={() => setState(s => ({...s, user: null}))}
+                onClick={() => signOut(auth)}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
@@ -739,10 +1515,57 @@ const Header = () => {
   );
 };
 
+const FloatingTimers = () => {
+  const { activeTimers, setActiveTimers, currentView, viewParams, setCurrentView, setViewParams } = useApp();
+  const entries = Object.entries(activeTimers).filter(([id]) => {
+     return !(currentView === 'runner' && viewParams === id);
+  });
+  if (entries.length === 0) return null;
+
+  return (
+    <div style={{ position: 'fixed', bottom: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 9999 }}>
+      {entries.map(([tcId, timer]) => (
+        <div key={tcId} style={{ background: 'var(--surface-overlay)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 15px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', position: 'relative' }}>
+          <button onClick={() => {
+            setActiveTimers(prev => {
+              const next = { ...prev };
+              delete next[tcId];
+              return next;
+            });
+            localStorage.removeItem(`test_manager_runner_${tcId}`);
+          }} style={{ position: 'absolute', top: '-10px', right: '-10px', background: 'var(--accent-danger)', border: 'none', borderRadius: '50%', padding: '0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Fechar Timer e Cancelar">
+            <i className="ph ph-x" style={{ fontSize: '0.8rem', color: 'white', fontWeight: 'bold' }}></i>
+          </button>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Execução Ativa</div>
+            <div style={{ fontWeight: 'bold' }}>{timer.title}</div>
+          </div>
+          <div style={{ background: 'var(--accent-primary)', padding: '0.2rem 0.5rem', borderRadius: '4px', color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="ph ph-timer"></i> {formatTime(timer.elapsedTime)}
+            <button onClick={() => {
+              if (!timer.isRunning) {
+                const isAnyOtherRunning = Object.entries(activeTimers).some(([id, t]) => id !== tcId && t.isRunning);
+                if (isAnyOtherRunning) {
+                  alert('Você já possui outro caso de teste em execução. Pause ou finalize-o antes de iniciar este.');
+                  return;
+                }
+              }
+              setActiveTimers(prev => ({...prev, [tcId]: {...prev[tcId], isRunning: !prev[tcId].isRunning}}))
+            }} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: 0 }}>
+              <i className={timer.isRunning ? "ph ph-pause-circle" : "ph ph-play-circle"} style={{ fontSize: '1.2rem' }}></i>
+            </button>
+          </div>
+          <button className="btn btn-soft" onClick={() => { setViewParams(tcId); setCurrentView('runner'); }} style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>Abrir</button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const Main = () => {
-  const { currentView, state } = useApp();
+  const { currentView, state, fullScreenImage, setFullScreenImage } = useApp();
   if (!state.user) return <LoginView />;
-  const Content = { dashboard: Dashboard, requirements: Requirements, testCases: TestCases, runner: Runner, bugs: Bugs, spreadsheet: SpreadsheetView }[currentView] || Dashboard;
+  const Content = { dashboard: Dashboard, requirements: Requirements, testCases: TestCases, runner: Runner, bugs: Bugs, spreadsheet: SpreadsheetView, profile: ProfileView }[currentView] || Dashboard;
   return (
     <div id="app">
       <Sidebar />
@@ -750,6 +1573,13 @@ const Main = () => {
         <Header />
         <main className="content-body"><Content /></main>
       </div>
+      <FloatingTimers />
+      {!!state.user && !!fullScreenImage && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={() => setFullScreenImage(null)}>
+          <button style={{ position: 'absolute', top: '20px', right: '30px', background: 'transparent', border: 'none', color: 'white', fontSize: '2rem', cursor: 'pointer' }} onClick={() => setFullScreenImage(null)}><i className="ph ph-x"></i></button>
+          <img src={fullScreenImage} alt="Evidência Ampliada" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px', cursor: 'zoom-out' }} />
+        </div>
+      )}
     </div>
   );
 };
