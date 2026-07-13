@@ -597,12 +597,6 @@ const TestCases = () => {
 
   return (
     <div className="animate-fade">
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-        <span style={{ cursor: 'pointer' }} onClick={() => setCurrentView('dashboard')}>Dashboard</span>
-        <i className="ph ph-caret-right"></i>
-        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Casos de Teste</span>
-      </div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
         <h3>Casos de Teste</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -995,7 +989,7 @@ const Runner = () => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn" onClick={() => setCurrentView('testCases')} title="Sair sem fechar o timer">Sair</button>
+          <button className="btn" onClick={() => setCurrentView('testCases')} title="Sair sem fechar o timer">Voltar</button>
         </div>
       </div>
       
@@ -1505,8 +1499,18 @@ const Header = () => {
     <header className="header" style={{ position: 'relative', zIndex: 100 }}>
       <button className="menu-toggle" onClick={() => setSidebarOpen(true)}><i className="ph ph-list"></i></button>
       
+      <div style={{ marginLeft: '1rem', fontWeight: 'bold', fontSize: '1.25rem', color: 'var(--text-primary)' }} className="hide-mobile">
+        {currentView === 'dashboard' && 'Dashboard'}
+        {currentView === 'requirements' && 'Tickets'}
+        {currentView === 'testCases' && 'Casos de Teste'}
+        {currentView === 'spreadsheet' && 'Planilha'}
+        {currentView === 'bugs' && 'Central de Bugs'}
+        {currentView === 'profile' && 'Meu Perfil'}
+        {currentView === 'runner' && 'Execução de Teste'}
+      </div>
+
       {currentView === 'testCases' ? (
-        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+        <div style={{ position: 'relative', flex: 1, maxWidth: '400px', marginLeft: '2rem' }}>
           <i className="ph ph-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }}></i>
           <input type="text" className="form-input" style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }} placeholder="Busca Titulo..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           {searchQuery && (
