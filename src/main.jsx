@@ -840,7 +840,11 @@ const Runner = () => {
     if (!tc) return [];
     try {
       const saved = localStorage.getItem(`test_manager_runner_${tc.id}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.length === tc.steps.length) return parsed;
+        localStorage.removeItem(`test_manager_runner_${tc.id}`);
+      }
     } catch (e) {}
     return JSON.parse(JSON.stringify(tc.steps));
   });
@@ -1196,13 +1200,36 @@ const SpreadsheetView = () => {
     });
   });
 
-  const updateStepStatus = (tcId, stepIdx, field, value) => {
+  const updateStepStatus = async (tcId, stepIdx, field, value) => {
+    const tc = state.testCases.find(t => t.id === tcId);
+    if (!tc) return;
+    const newSteps = JSON.parse(JSON.stringify(tc.steps));
+    newSteps[stepIdx][field] = value;
+    
+    // Atualização otimista
     setState(s => {
       const newTCs = [...s.testCases];
       const tcIndex = newTCs.findIndex(t => t.id === tcId);
-      newTCs[tcIndex].steps[stepIdx][field] = value;
+      newTCs[tcIndex].steps = newSteps;
       return { ...s, testCases: newTCs };
     });
+
+    const hasFail = newSteps.some(st => st.status === 'failed');
+    const hasPass = newSteps.some(st => st.status === 'passed');
+    const allPass = newSteps.length > 0 && newSteps.every(st => st.status === 'passed');
+    const allPending = newSteps.every(st => st.status === 'pending');
+    
+    let newStatus = tc.status;
+    if (allPending) newStatus = 'Não executado';
+    else if (allPass) newStatus = 'Aprovado';
+    else if (hasFail) newStatus = 'Reprovado';
+    else if (hasPass) newStatus = 'Parcial';
+
+    try {
+      await setDoc(doc(db, 'testCases', tcId), { steps: newSteps, status: newStatus }, { merge: true });
+    } catch (err) {
+      console.error('Erro ao salvar no Firestore', err);
+    }
   };
 
   const totalSteps = allSteps.length;
@@ -1260,17 +1287,29 @@ const SpreadsheetView = () => {
                  const isPendente = row.step.status === 'pending';
                  const isOk = row.step.status === 'passed';
                  const isFalha = row.step.status === 'failed';
+                 
+                 const tc = state.testCases.find(t => t.id === row.tcId);
+                 const ticket = state.requirements.find(r => r.id === tc?.requirementId);
+                 const tcOwner = tc?.createdBy || ticket?.createdBy;
+                 const canExecute = state.user?.name && (tcOwner === state.user.name || tc?.linkedUser === state.user.name);
+
                  return (
-                 <tr key={`${row.tcId}-${row.stepIdx}`} style={{ background: index % 2 === 0 ? '#eef8fc' : '#fff', color: '#333' }}>
+                 <tr key={`${row.tcId}-${row.stepIdx}`} style={{ background: index % 2 === 0 ? '#eef8fc' : '#fff', color: '#333', opacity: canExecute ? 1 : 0.6 }}>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{index + 1}</td>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center', fontWeight: row.tcTitle ? 'bold' : 'normal' }}>{row.tcTitle}</td>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{row.step.action}</td>
                     <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{row.step.expected}</td>
                     <td style={{ border: '1px solid #ccc', padding: '0' }}>
-                        <input value={row.step.actualResult || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'actualResult', e.target.value)} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none', textAlign: 'center' }} placeholder="Inserir resultado..." />
+                        {isFalha ? (
+                          <input value={row.step.actualResult || ''} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'actualResult', e.target.value)} disabled={!canExecute} style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', padding: '6px 8px', color: '#333', outline: 'none', textAlign: 'center', cursor: canExecute ? 'text' : 'not-allowed' }} placeholder="Descreva a falha (Obrigatório)" />
+                        ) : isOk ? (
+                          <div style={{ padding: '6px 8px', color: '#10b981', textAlign: 'center', fontStyle: 'italic' }}>Conforme esperado</div>
+                        ) : (
+                          <div style={{ padding: '6px 8px', color: '#cbd5e1', textAlign: 'center' }}>-</div>
+                        )}
                     </td>
                     <td style={{ border: '1px solid #ccc', padding: '0' }}>
-                        <select value={row.step.status} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'status', e.target.value)} style={{ width: '100%', border: 'none', background: 'transparent', padding: '4px', fontWeight: 'bold', outline: 'none', textAlign: 'center', color: isOk ? '#10b981' : isFalha ? '#ef4444' : '#64748b' }}>
+                        <select value={row.step.status} onChange={(e) => updateStepStatus(row.tcId, row.stepIdx, 'status', e.target.value)} disabled={!canExecute} style={{ width: '100%', border: 'none', background: 'transparent', padding: '4px', fontWeight: 'bold', outline: 'none', textAlign: 'center', color: isOk ? '#10b981' : isFalha ? '#ef4444' : '#64748b', cursor: canExecute ? 'pointer' : 'not-allowed' }} title={canExecute ? '' : 'Sem permissão para editar'}>
                             <option value="pending">Pendente</option>
                             <option value="passed">Ok</option>
                             <option value="failed">Falha</option>
