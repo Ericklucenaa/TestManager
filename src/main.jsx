@@ -600,11 +600,11 @@ const TestCases = () => {
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
         <span style={{ cursor: 'pointer' }} onClick={() => setCurrentView('dashboard')}>Dashboard</span>
         <i className="ph ph-caret-right"></i>
-        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Requisitos</span>
+        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Casos de Teste</span>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
-        <h3>Requisitos</h3>
+        <h3>Casos de Teste</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <TicketDropdown requirements={state.requirements} value={ticketFilter} onChange={setTicketFilter} />
           <button className="btn btn-primary" onClick={openNew}><i className="ph ph-plus"></i> Novo CT</button>
@@ -855,14 +855,6 @@ const Runner = () => {
     }
   }, [localSteps, tc?.id]);
   
-  useEffect(() => {
-    if (!tc) return;
-    setActiveTimers(prev => {
-      if (prev[tc.id]) return prev;
-      return { ...prev, [tc.id]: { title: tc.title, elapsedTime: tc.executionTime || 0, isRunning: false } };
-    });
-  }, [tc?.id]);
-
   const timerState = activeTimers[tc?.id] || { elapsedTime: tc?.executionTime || 0, isRunning: false };
   const elapsedTime = timerState.elapsedTime;
   const isRunning = timerState.isRunning;
@@ -876,8 +868,8 @@ const Runner = () => {
       }
     }
     setActiveTimers(prev => {
-      if (!prev[tc.id]) return prev;
-      return { ...prev, [tc.id]: { ...prev[tc.id], isRunning: !prev[tc.id].isRunning } };
+      const currentState = prev[tc.id] || { title: tc.title, elapsedTime: tc.executionTime || 0, isRunning: false };
+      return { ...prev, [tc.id]: { ...currentState, isRunning: !currentState.isRunning } };
     });
   };
 
@@ -982,7 +974,7 @@ const Runner = () => {
   return (
     <div className="animate-fade">
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-        <span style={{ cursor: 'pointer' }} onClick={() => setCurrentView('testCases')}>Requisitos</span>
+        <span style={{ cursor: 'pointer' }} onClick={() => setCurrentView('testCases')}>Casos de Teste</span>
         <i className="ph ph-caret-right"></i>
         <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Execução</span>
       </div>
@@ -1114,7 +1106,7 @@ const Bugs = () => {
                             setSearchQuery(tc.title);
                             setCurrentView('testCases');
                           }
-                        }} title="Ver no Requisitos">
+                        }} title="Ver em Casos de Teste">
                           <i className="ph ph-arrow-square-out"></i> Abrir
                         </button>
                       </div>
@@ -1463,7 +1455,7 @@ const Sidebar = () => {
   const menu = [
     { id: 'dashboard', label: 'Dashboard', icon: 'ph-fill ph-chart-pie' },
     { id: 'requirements', label: 'Tickets', icon: 'ph ph-scroll' },
-    { id: 'testCases', label: 'Requisitos', icon: 'ph ph-test-tube' },
+    { id: 'testCases', label: 'Casos de Teste', icon: 'ph ph-test-tube' },
     { id: 'spreadsheet', label: 'Planilha', icon: 'ph ph-table' },
     { id: 'bugs', label: 'Bugs', icon: 'ph ph-bug' },
     { id: 'profile', label: 'Meu Perfil', icon: 'ph ph-user' }
