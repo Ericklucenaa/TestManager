@@ -1398,7 +1398,7 @@ const LoginView = () => {
         
         {!isForgotPassword && (
           <>
-            <button className="btn btn-soft" onClick={handleGoogleLogin} style={{ width: '100%', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444' }}>
+            <button className="btn btn-soft" onClick={handleGoogleLogin} style={{ width: '100%', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border-color)' }}>
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '18px', height: '18px' }} />
               Continuar com o Google
             </button>
@@ -1420,17 +1420,21 @@ const LoginView = () => {
           </button>
         </form>
         
-        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '0.9rem' }}>
           {isForgotPassword ? (
-            <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotPassword(false); setError(''); setMessage(''); }} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>Voltar para o Login</a>
+            <button className="btn" onClick={(e) => { e.preventDefault(); setIsForgotPassword(false); setError(''); setMessage(''); }} style={{ width: '100%', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', color: 'var(--accent-primary)', padding: '0.8rem' }}>
+              Voltar para o Login
+            </button>
           ) : (
             <>
               {!isRegister && (
-                <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotPassword(true); setError(''); setMessage(''); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.8rem' }}>Esqueci minha senha</a>
+                <button className="btn" onClick={(e) => { e.preventDefault(); setIsForgotPassword(true); setError(''); setMessage(''); }} style={{ width: '100%', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', color: 'var(--text-secondary)', padding: '0.8rem' }}>
+                  Esqueci minha senha
+                </button>
               )}
-              <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError(''); setMessage(''); }} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>
+              <button className="btn" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError(''); setMessage(''); }} style={{ width: '100%', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', color: 'var(--accent-primary)', padding: '0.8rem' }}>
                 {isRegister ? 'Já tenho uma conta' : 'Criar nova conta'}
-              </a>
+              </button>
             </>
           )}
         </div>
