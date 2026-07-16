@@ -381,8 +381,8 @@ const Requirements = () => {
             {filtered.map(r => (
               <tr key={r.id}>
                 <td style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{r.code}</td>
-                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</td>
-                <td style={{ color: 'var(--text-primary)' }}>{r.description}</td>
+                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }} title={r.title}>{r.title?.length > 45 ? r.title.substring(0, 45) + '...' : r.title}</td>
+                <td style={{ color: 'var(--text-primary)' }} title={r.description}>{r.description?.length > 60 ? r.description.substring(0, 60) + '...' : r.description}</td>
                 <td style={{ color: 'var(--text-primary)' }}>{r.team || '-'}</td>
                 <td style={{ color: 'var(--text-primary)' }}>{r.createdBy || '-'}</td>
                 <td style={{ textAlign: 'right' }}>
