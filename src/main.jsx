@@ -563,28 +563,39 @@ const TicketDropdown = ({ requirements, value, onChange }) => {
   );
 };
 
-const UserDropdown = ({ users, value, onChange }) => {
+const UserMultiSelect = ({ users, value = [], onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const filtered = users.filter(u => u.toLowerCase().includes((value || '').toLowerCase()));
+  const [search, setSearch] = useState('');
+  
+  const filtered = users.filter(u => u.toLowerCase().includes(search.toLowerCase()) && !value.includes(u));
+
+  const add = (u) => { onChange([...value, u]); setSearch(''); setIsOpen(false); };
+  const remove = (u) => { onChange(value.filter(v => v !== u)); };
 
   return (
     <div style={{ position: 'relative', zIndex: 998 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        {value.map(v => (
+          <span key={v} style={{ background: 'var(--accent-primary)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {v} <i className="ph ph-x" style={{ cursor: 'pointer' }} onClick={() => remove(v)}></i>
+          </span>
+        ))}
+      </div>
       <input 
         className="form-input" 
-        placeholder="Selecione ou digite o nome do usuário..." 
-        value={value} 
-        onChange={e => { onChange(e.target.value); setIsOpen(true); }}
+        placeholder="Pesquisar ou adicionar usuário..." 
+        value={search} 
+        onChange={e => { setSearch(e.target.value); setIsOpen(true); }}
         onFocus={() => setIsOpen(true)}
         onBlur={() => setTimeout(() => setIsOpen(false), 150)}
       />
-      <i className="ph ph-caret-down" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }}></i>
       {isOpen && filtered.length > 0 && (
         <div className="animate-fade" style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', zIndex: 1000, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
           {filtered.map(u => (
             <div 
               key={u} 
               style={{ padding: '0.8rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-primary)', transition: 'background 0.2s' }}
-              onMouseDown={(e) => { e.preventDefault(); onChange(u); setIsOpen(false); }}
+              onMouseDown={(e) => { e.preventDefault(); add(u); }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
@@ -597,11 +608,43 @@ const UserDropdown = ({ users, value, onChange }) => {
   );
 };
 
+const generateFlowchart = (tc) => {
+  if (!tc || !tc.steps || tc.steps.length === 0) return 'graph TD\n  A[Início] --> B[Fim]';
+  
+  let chart = 'graph TD\n';
+  chart += '  Start((Início))\n';
+  
+  let lastNode = 'Start';
+  
+  tc.steps.forEach((step, i) => {
+    const actionNode = `A${i}["${step.action.replace(/"/g, "'")}"]`;
+    const expectedNode = `E${i}{"${step.expected.replace(/"/g, "'")}"}`;
+    chart += `  ${lastNode} --> ${actionNode}\n`;
+    chart += `  ${actionNode} --> ${expectedNode}\n`;
+    lastNode = `E${i}`;
+  });
+  chart += `  ${lastNode} --> End((Fim))\n`;
+  
+  return chart;
+};
+
+const Mermaid = ({ chart }) => {
+  const containerRef = React.useRef(null);
+  useEffect(() => {
+    if (containerRef.current && window.mermaid) {
+      window.mermaid.render('mermaid-chart-' + Date.now(), chart).then(({ svg }) => {
+        if(containerRef.current) containerRef.current.innerHTML = svg;
+      }).catch(e => console.error(e));
+    }
+  }, [chart]);
+  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', background: 'var(--surface-solid)', padding: '1rem', borderRadius: '8px' }} />;
+};
+
 const TestCases = () => {
   const { state, setState, searchQuery, deleteItem, logAction, setCurrentView, setViewParams, setFullScreenImage } = useApp();
   const [modal, setModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ title: '', requirementId: '', priority: 'Média', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
+  const [form, setForm] = useState({ title: '', requirementId: '', priority: 'Média', group: '', preRequisites: '', linkedUsers: [], steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
   const [activeModalTab, setActiveModalTab] = useState('details');
   const [timelineTcId, setTimelineTcId] = useState(null);
 
@@ -640,14 +683,14 @@ const TestCases = () => {
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ title: '', requirementId: '', priority: 'Média', linkedUser: '', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
+    setForm({ title: '', requirementId: '', priority: 'Média', group: '', preRequisites: '', linkedUsers: [], steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
     setActiveModalTab('details');
     setModal(true);
   };
 
   const openEdit = (tc) => {
     setEditingId(tc.id);
-    setForm({ title: tc.title, requirementId: tc.requirementId, priority: tc.priority, linkedUser: tc.linkedUser || '', steps: JSON.parse(JSON.stringify(tc.steps)) });
+    setForm({ title: tc.title, requirementId: tc.requirementId, priority: tc.priority, group: tc.group || '', preRequisites: tc.preRequisites || '', linkedUsers: tc.linkedUsers || (tc.linkedUser ? [tc.linkedUser] : []), steps: JSON.parse(JSON.stringify(tc.steps)) });
     setActiveModalTab('details');
     setModal(true);
   };
@@ -731,7 +774,7 @@ const TestCases = () => {
                           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                            {(() => {
                              const tcOwner = t.createdBy || ticket?.createdBy;
-                             const canEdit = state.user?.name && (tcOwner === state.user.name || t.linkedUser === state.user.name);
+                             const canEdit = state.user?.name && (tcOwner === state.user.name || t.linkedUser === state.user.name || t.linkedUsers?.includes(state.user.name));
                              return (
                                <button 
                                  className="btn" 
@@ -753,7 +796,7 @@ const TestCases = () => {
                              <i className="ph ph-clock-counter-clockwise"></i>
                            </button>
                            {(() => {
-                             const canExecute = state.user?.name && (t.createdBy === state.user.name || ticket?.createdBy === state.user.name || t.linkedUser === state.user.name);
+                             const canExecute = state.user?.name && (t.createdBy === state.user.name || ticket?.createdBy === state.user.name || t.linkedUser === state.user.name || t.linkedUsers?.includes(state.user.name));
                              return (
                                <button 
                                  className={`btn ${canExecute ? 'btn-primary' : ''}`} 
@@ -774,7 +817,7 @@ const TestCases = () => {
                            })()}
                            {(() => {
                              const tcOwner = t.createdBy || ticket?.createdBy;
-                             const canEdit = state.user?.name && (tcOwner === state.user.name || t.linkedUser === state.user.name);
+                             const canEdit = state.user?.name && (tcOwner === state.user.name || t.linkedUser === state.user.name || t.linkedUsers?.includes(state.user.name));
                              return (
                                <button 
                                  className={`btn ${canEdit ? 'btn-danger' : ''}`} 
@@ -804,9 +847,10 @@ const TestCases = () => {
       </div>
       <Modal isOpen={modal} onClose={() => setModal(false)} title={editingId ? "Editar Caso de Teste" : "Novo Caso de Teste"}>
         {editingId && (
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <button className="btn" onClick={() => setActiveModalTab('details')} style={{ background: 'transparent', border: 'none', borderBottom: activeModalTab === 'details' ? '2px solid var(--accent-primary)' : '2px solid transparent', borderRadius: 0, padding: '0.5rem 1rem', color: activeModalTab === 'details' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>Detalhes</button>
             <button className="btn" onClick={() => setActiveModalTab('history')} style={{ background: 'transparent', border: 'none', borderBottom: activeModalTab === 'history' ? '2px solid var(--accent-primary)' : '2px solid transparent', borderRadius: 0, padding: '0.5rem 1rem', color: activeModalTab === 'history' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>Histórico de Execuções</button>
+            <button className="btn" onClick={() => setActiveModalTab('diagram')} style={{ background: 'transparent', border: 'none', borderBottom: activeModalTab === 'diagram' ? '2px solid var(--accent-primary)' : '2px solid transparent', borderRadius: 0, padding: '0.5rem 1rem', color: activeModalTab === 'diagram' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>Fluxo (Diagrama)</button>
           </div>
         )}
         
@@ -827,11 +871,19 @@ const TestCases = () => {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Vincular a Usuário (Opcional)</label>
-              <UserDropdown 
-                users={[...new Set([...state.requirements.map(r=>r.createdBy), ...state.testCases.map(t=>t.createdBy), ...state.testCases.map(t=>t.linkedUser)].filter(Boolean))]} 
-                value={form.linkedUser || ''} 
-                onChange={(val) => setForm({...form, linkedUser: val})} 
+              <label className="form-label">Pré-Requisitos (Opcional)</label>
+              <textarea className="form-input" rows="2" placeholder="O que é necessário antes de executar este teste?" value={form.preRequisites || ''} onChange={e => setForm({...form, preRequisites: e.target.value})}></textarea>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Grupo/Categoria (Opcional)</label>
+              <input className="form-input" placeholder="Ex: Regressivo, Login, Positivo..." value={form.group || ''} onChange={e => setForm({...form, group: e.target.value})} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Usuários Vinculados</label>
+              <UserMultiSelect 
+                users={[...new Set([...state.requirements.map(r=>r.createdBy), ...state.testCases.map(t=>t.createdBy), ...state.testCases.flatMap(t=>t.linkedUsers || (t.linkedUser ? [t.linkedUser] : []))].filter(Boolean))]} 
+                value={form.linkedUsers} 
+                onChange={(val) => setForm({...form, linkedUsers: val})} 
               />
             </div>
             <div style={{ marginBottom: '1rem' }}>
@@ -850,7 +902,7 @@ const TestCases = () => {
               <button type="submit" className="btn btn-primary">{editingId ? "Atualizar CT" : "Salvar CT"}</button>
             </div>
           </form>
-        ) : (
+        ) : activeModalTab === 'history' ? (
           <div>
             {(() => {
               const tc = state.testCases.find(t => t.id === editingId);
@@ -897,7 +949,16 @@ const TestCases = () => {
               );
             })()}
           </div>
-        )}
+        ) : activeModalTab === 'diagram' ? (
+          <div>
+            {(() => {
+              const tc = state.testCases.find(t => t.id === editingId);
+              if (!tc) return null;
+              const chart = generateFlowchart(tc);
+              return <Mermaid chart={chart} />;
+            })()}
+          </div>
+        ) : null}
       </Modal>
 
       <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Confirmar Exclusão">
@@ -1381,7 +1442,7 @@ const SpreadsheetView = () => {
                  const tc = state.testCases.find(t => t.id === row.tcId);
                  const ticket = state.requirements.find(r => r.id === tc?.requirementId);
                  const tcOwner = tc?.createdBy || ticket?.createdBy;
-                 const canExecute = state.user?.name && (tcOwner === state.user.name || tc?.linkedUser === state.user.name);
+                 const canExecute = state.user?.name && (tcOwner === state.user.name || tc?.linkedUser === state.user.name || tc?.linkedUsers?.includes(state.user.name));
 
                  return (
                  <tr key={`${row.tcId}-${row.stepIdx}`} style={{ background: index % 2 === 0 ? '#eef8fc' : '#fff', color: '#333', opacity: canExecute ? 1 : 0.6 }}>
