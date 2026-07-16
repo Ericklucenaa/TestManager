@@ -25,6 +25,14 @@ const STORAGE_KEY = 'test_manager_v5';
 
 const AppContext = createContext();
 
+const Logo90Ti = ({ style = {}, className = '' }) => (
+  <svg viewBox="0 0 200 80" style={{ height: '40px', ...style }} className={className} xmlns="http://www.w3.org/2000/svg">
+    <text x="5" y="65" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="72px" fill="#006eb7" letterSpacing="-2">90</text>
+    <rect x="63" y="31" width="14" height="14" fill="#ed6a22" rx="2" />
+    <text x="110" y="65" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="72px" fill="#ed6a22" letterSpacing="-2">Ti</text>
+  </svg>
+);
+
 const AppProvider = ({ children }) => {
   const [state, setState] = useState({
     projects: [{ id: '1', name: 'Nexus Core', environment: 'Production', description: 'Sistema Principal' }],
@@ -1385,7 +1393,7 @@ const LoginView = () => {
   return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
       <div className="stat-card" style={{ width: '400px', padding: '3rem', textAlign: 'center' }}>
-        <i className="ph-fill ph-shield-check" style={{ fontSize: '3rem', color: 'var(--accent-primary)', marginBottom: '1.5rem' }}></i>
+        <Logo90Ti style={{ height: '60px', marginBottom: '1.5rem', display: 'inline-block' }} />
         <h2 style={{ marginBottom: '2rem' }}>
           {isForgotPassword ? 'Recuperar Senha' : (isRegister ? 'Criar Conta' : 'Login Test Manager')}
         </h2>
@@ -1521,7 +1529,7 @@ const Sidebar = () => {
   return (
     <aside className={`sidebar ${isSidebarOpen ? 'active' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', marginBottom: '2.5rem' }}>
-        {!isCollapsed && <div style={{ fontWeight: 900, fontSize: '1.5rem', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>Test Manager</div>}
+        {!isCollapsed && <Logo90Ti style={{ height: '28px' }} />}
         <button className="btn-icon" onClick={() => setIsCollapsed(!isCollapsed)} title="Alternar Menu">
           <i className="ph ph-list"></i>
         </button>
