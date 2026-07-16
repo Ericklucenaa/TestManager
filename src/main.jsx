@@ -952,7 +952,7 @@ const Runner = () => {
     await setDoc(doc(db, 'testCases', tc.id), { steps: localSteps, status: finalStatus, executionTime: elapsedTime, executions }, { merge: true });
     
     if (shouldCreateBug) {
-      await setDoc(doc(db, 'bugs', bugId), { id: bugId, caseId: tc.id, title: `Falha: ${tc.title}`, status: 'Aberto', severity: 'Alta', executionTime: elapsedTime });
+      await setDoc(doc(db, 'bugs', bugId), { id: bugId, caseId: tc.id, title: `Falha: ${tc.title}`, status: 'Aberto', severity: 'Alta', executionTime: elapsedTime, createdBy: state.user?.name || 'Sistema' });
       logAction('Bug Automático detectado', bugId);
     } else if (hasFail && bugAlreadyExists) {
       const bug = state.bugs.find(b => b.caseId === tc.id && b.status === 'Aberto');
@@ -1093,9 +1093,24 @@ const Bugs = () => {
                     <td><Badge>{b.status}</Badge></td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-soft" onClick={() => toggleStatus(b.id, b.status)} title={b.status === 'Aberto' ? 'Fechar Bug' : 'Reabrir Bug'}>
-                          <i className={b.status === 'Aberto' ? 'ph ph-check-circle' : 'ph ph-arrow-counter-clockwise'} style={{ color: b.status === 'Aberto' ? 'var(--accent-success)' : 'var(--text-secondary)' }}></i>
-                        </button>
+                        {(() => {
+                          const canClose = state.user?.name && (
+                            b.createdBy === state.user.name ||
+                            tc?.createdBy === state.user.name ||
+                            req?.createdBy === state.user.name
+                          );
+                          return (
+                            <button className="btn btn-soft" onClick={() => {
+                              if (!canClose) {
+                                alert('Acesso negado: Você só pode fechar/reabrir bugs gerados pelos seus testes ou tickets.');
+                                return;
+                              }
+                              toggleStatus(b.id, b.status);
+                            }} title={!canClose ? "Acesso negado" : (b.status === 'Aberto' ? 'Fechar Bug' : 'Reabrir Bug')} style={{ opacity: canClose ? 1 : 0.4, cursor: canClose ? 'pointer' : 'not-allowed' }}>
+                              <i className={b.status === 'Aberto' ? 'ph ph-check-circle' : 'ph ph-arrow-counter-clockwise'} style={{ color: b.status === 'Aberto' ? 'var(--accent-success)' : 'var(--text-secondary)' }}></i>
+                            </button>
+                          );
+                        })()}
                         <button className="btn btn-soft" onClick={() => setExpandedBug(isExpanded ? null : b.id)} title="Ver Detalhes/Logs">
                           <i className={`ph ph-caret-${isExpanded ? 'up' : 'down'}`}></i> Logs
                         </button>
