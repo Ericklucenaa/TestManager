@@ -386,9 +386,9 @@ const Requirements = () => {
               <tr key={r.id}>
                 <td style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{r.code}</td>
                 <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{r.description}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{r.team || '-'}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{r.createdBy || '-'}</td>
+                <td style={{ color: 'var(--text-primary)' }}>{r.description}</td>
+                <td style={{ color: 'var(--text-primary)' }}>{r.team || '-'}</td>
+                <td style={{ color: 'var(--text-primary)' }}>{r.createdBy || '-'}</td>
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                     {(() => {
