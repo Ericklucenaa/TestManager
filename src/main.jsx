@@ -1,7 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, query, where, getDocs, orderBy } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, updatePassword } from "firebase/auth";
 import './style.css';
 
@@ -425,6 +425,84 @@ const Requirements = () => {
   );
 };
 
+// --- Timeline Modal ---
+const TimelineModal = ({ isOpen, onClose, tcId }) => {
+  const { state } = useApp();
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isOpen || !tcId) return;
+    const fetchLogs = async () => {
+      setLoading(true);
+      try {
+        const tc = state.testCases.find(t => t.id === tcId);
+        if (!tc) return;
+        const reqId = tc.requirementId;
+        const bugs = state.bugs.filter(b => b.caseId === tcId).map(b => b.id);
+        
+        const targets = [tcId, reqId, ...bugs].filter(Boolean);
+        
+        let allLogs = [];
+        for (const target of targets) {
+          const q = query(collection(db, 'auditLogs'), where('targetId', '==', target));
+          const snapshot = await getDocs(q);
+          snapshot.forEach(docSnap => allLogs.push(docSnap.data()));
+        }
+        
+        allLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setLogs(allLogs);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, [isOpen, tcId]);
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Timeline e Histórico">
+      {loading ? (
+        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Carregando histórico...</div>
+      ) : (
+        <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '1rem', paddingLeft: '1rem' }}>
+          {logs.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Nenhum histórico encontrado.</p>
+          ) : (
+            <div style={{ position: 'relative', borderLeft: '2px solid var(--border-color)', marginLeft: '1rem', paddingBottom: '1rem', marginTop: '1rem' }}>
+              {logs.map((log) => {
+                const actionLower = log.action.toLowerCase();
+                const isBug = actionLower.includes('bug');
+                const isSuccess = actionLower.includes('sucesso') || actionLower.includes('fechad');
+                const isEdit = actionLower.includes('editou');
+                const iconColor = isBug ? 'var(--accent-danger)' : isSuccess ? 'var(--accent-success)' : isEdit ? 'var(--accent-info)' : 'var(--accent-primary)';
+                const iconClass = isBug ? 'ph-bug' : isSuccess ? 'ph-check-circle' : isEdit ? 'ph-pencil' : 'ph-clock-counter-clockwise';
+                
+                return (
+                  <div key={log.id} style={{ position: 'relative', paddingLeft: '2rem', marginBottom: '1.5rem' }}>
+                    <div style={{ position: 'absolute', left: '-13px', top: '0', width: '24px', height: '24px', background: iconColor, borderRadius: '50%', border: '4px solid var(--surface-solid)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                      <i className={`ph ${iconClass}`} style={{ fontSize: '12px' }}></i>
+                    </div>
+                    <div style={{ background: 'var(--surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                        {new Date(log.timestamp).toLocaleString()} • <strong>{log.userName}</strong>
+                      </div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{log.action}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+};
+
 // --- View: TestCases ---
 const TicketDropdown = ({ requirements, value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -525,6 +603,7 @@ const TestCases = () => {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ title: '', requirementId: '', priority: 'Média', steps: [{ action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }] });
   const [activeModalTab, setActiveModalTab] = useState('details');
+  const [timelineTcId, setTimelineTcId] = useState(null);
 
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [ticketFilter, setTicketFilter] = useState('');
@@ -670,6 +749,9 @@ const TestCases = () => {
                                </button>
                              );
                            })()}
+                           <button className="btn btn-soft" onClick={() => setTimelineTcId(t.id)} style={{ padding: '0.5rem', color: 'var(--accent-info)' }} title="Histórico / Timeline">
+                             <i className="ph ph-clock-counter-clockwise"></i>
+                           </button>
                            {(() => {
                              const canExecute = state.user?.name && (t.createdBy === state.user.name || ticket?.createdBy === state.user.name || t.linkedUser === state.user.name);
                              return (
@@ -825,6 +907,8 @@ const TestCases = () => {
           <button type="button" className="btn btn-danger" onClick={() => { deleteItem('testCases', deleteConfirm); setDeleteConfirm(null); }}>Excluir</button>
         </div>
       </Modal>
+
+      <TimelineModal isOpen={!!timelineTcId} onClose={() => setTimelineTcId(null)} tcId={timelineTcId} />
     </div>
   );
 };
@@ -1046,7 +1130,7 @@ const Runner = () => {
 
 // --- View: Bugs ---
 const Bugs = () => {
-  const { state, setCurrentView, setSearchQuery, setState } = useApp();
+  const { state, setCurrentView, setSearchQuery, setState, logAction } = useApp();
   const [filter, setFilter] = useState('Abertos');
   const [expandedBug, setExpandedBug] = useState(null);
 
@@ -1056,9 +1140,10 @@ const Bugs = () => {
     return true; // Todos
   });
 
-  const toggleStatus = async (bugId, currentStatus) => {
+  const toggleStatus = async (bugId, currentStatus, tcId) => {
     const newStatus = currentStatus === 'Aberto' ? 'Fechado' : 'Aberto';
     await setDoc(doc(db, 'bugs', bugId), { status: newStatus }, { merge: true });
+    if (tcId) logAction(newStatus === 'Fechado' ? 'Fechou o Bug' : 'Reabriu o Bug', tcId);
   };
 
 
@@ -1105,7 +1190,7 @@ const Bugs = () => {
                                 alert('Acesso negado: Você só pode fechar/reabrir bugs gerados pelos seus testes ou tickets.');
                                 return;
                               }
-                              toggleStatus(b.id, b.status);
+                              toggleStatus(b.id, b.status, tc?.id);
                             }} title={!canClose ? "Acesso negado" : (b.status === 'Aberto' ? 'Fechar Bug' : 'Reabrir Bug')} style={{ opacity: canClose ? 1 : 0.4, cursor: canClose ? 'pointer' : 'not-allowed' }}>
                               <i className={b.status === 'Aberto' ? 'ph ph-check-circle' : 'ph ph-arrow-counter-clockwise'} style={{ color: b.status === 'Aberto' ? 'var(--accent-success)' : 'var(--text-secondary)' }}></i>
                             </button>
