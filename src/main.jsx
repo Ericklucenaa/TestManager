@@ -1387,8 +1387,16 @@ const LoginView = () => {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
-      <div className="stat-card" style={{ width: '400px', padding: '3rem', textAlign: 'center' }}>
+    <div style={{ height: '100vh', width: '100%', display: 'flex', overflow: 'hidden' }}>
+      <div className="hide-mobile" style={{ flex: 1, background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: '3rem', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '400px', height: '400px', background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(40px)' }}></div>
+        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '300px', height: '300px', background: 'rgba(0,0,0,0.1)', borderRadius: '50%', filter: 'blur(40px)' }}></div>
+        <i className="ph-fill ph-rocket-launch" style={{ fontSize: '4rem', marginBottom: '1.5rem', opacity: 0.9 }}></i>
+        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-1px' }}>Test Manager</h1>
+        <p style={{ fontSize: '1.2rem', opacity: 0.9, textAlign: 'center', maxWidth: '400px', lineHeight: 1.6 }}>Plataforma avançada de qualidade e testes para equipes de alta performance.</p>
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)', position: 'relative' }}>
+        <div style={{ width: '100%', maxWidth: '440px', padding: '3rem', textAlign: 'center', background: 'var(--surface-solid)', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.1)', border: '1px solid var(--glass-border)', margin: '1.5rem' }}>
         <Logo90Ti style={{ height: '60px', marginBottom: '1.5rem', display: 'inline-block' }} />
         <h2 style={{ marginBottom: '2rem' }}>
           {isForgotPassword ? 'Recuperar Senha' : (isRegister ? 'Criar Conta' : 'Login Test Manager')}
@@ -1437,6 +1445,7 @@ const LoginView = () => {
               </button>
             </>
           )}
+        </div>
         </div>
       </div>
     </div>
