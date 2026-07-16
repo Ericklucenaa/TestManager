@@ -79,7 +79,7 @@ const AppProvider = ({ children }) => {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setState(s => ({ ...s, user: { uid: user.uid, name: user.displayName || user.email.split('@')[0], email: user.email } }));
+        setState(s => ({ ...s, user: { uid: user.uid, name: user.displayName || user.email.split('@')[0], email: user.email, photoURL: user.photoURL } }));
       } else {
         setState(s => ({ ...s, user: null }));
       }
@@ -1439,14 +1439,23 @@ const ProfileView = () => {
   const { state } = useApp();
   const [name, setName] = useState(state.user?.name || '');
   const [newPassword, setNewPassword] = useState('');
+  const [photoURL, setPhotoURL] = useState(state.user?.photoURL || '');
   const [loading, setLoading] = useState(false);
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const base64 = await compressImage(file, 200);
+      setPhotoURL(base64);
+    }
+  };
 
   const handleSave = async () => {
     setLoading(true);
     try {
       let updated = false;
-      if (name !== state.user?.name) {
-        await updateProfile(auth.currentUser, { displayName: name });
+      if (name !== state.user?.name || photoURL !== state.user?.photoURL) {
+        await updateProfile(auth.currentUser, { displayName: name, photoURL: photoURL });
         updated = true;
       }
       if (newPassword) {
@@ -1470,6 +1479,18 @@ const ProfileView = () => {
     <div className="animate-fade" style={{ maxWidth: '600px', margin: '0 auto' }}>
       <h3 style={{ marginBottom: '2rem' }}>Meu Perfil</h3>
       <div className="stat-card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid var(--border-color)' }}>
+            {photoURL ? <img src={photoURL} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <i className="ph ph-user" style={{ fontSize: '2.5rem', color: 'var(--text-secondary)' }}></i>}
+          </div>
+          <div>
+            <label className="btn btn-soft" style={{ cursor: 'pointer', display: 'inline-flex' }}>
+              <i className="ph ph-camera"></i> Alterar Foto
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
+            </label>
+          </div>
+        </div>
+
         <label className="form-label">Nome de Exibição (Aparece nos Tickets)</label>
         <input className="form-input" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: '1rem' }} />
         <label className="form-label">E-mail</label>
@@ -1573,10 +1594,10 @@ const Header = () => {
         </div>
         <div style={{ position: 'relative' }} ref={menuRef}>
           <div 
-            style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, cursor: 'pointer', color: 'white' }}
+            style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, cursor: 'pointer', color: 'white', overflow: 'hidden' }}
             onClick={() => setMenuOpen(!menuOpen)}
           >
-            {state.user?.name?.[0]}
+            {state.user?.photoURL ? <img src={state.user.photoURL} alt="User" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : state.user?.name?.[0]}
           </div>
           {menuOpen && (
             <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', padding: '0.25rem', minWidth: '100px', zIndex: 9999, display: 'flex', justifyContent: 'center' }}>
