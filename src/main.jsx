@@ -379,7 +379,7 @@ const Requirements = () => {
                 <td style={{ fontWeight: 900, color: 'var(--accent-primary)', fontFamily: 'monospace' }}>{r.code}</td>
                 <td style={{ fontWeight: 600 }}>{r.title}</td>
                 <td style={{ fontSize: '0.85rem', opacity: 0.7 }}>{r.description}</td>
-                <td><Badge>{r.team || '-'}</Badge></td>
+                <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>{r.team || '-'}</td>
                 <td style={{ fontSize: '0.85rem' }}>{r.createdBy || '-'}</td>
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

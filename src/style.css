@@ -375,6 +375,7 @@ h1, h2, h3, h4, h5 {
 
 /* Badges */
 .badge {
+  display: inline-block;
   padding: 0.3rem 0.7rem;
   border-radius: 6px;
   font-size: 0.65rem;
@@ -386,6 +387,7 @@ h1, h2, h3, h4, h5 {
 .badge-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .badge-info { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+.badge-secondary { background: rgba(100, 116, 139, 0.15); color: var(--text-secondary); }
 
 /* Print Styles */
 @media print {
