@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc } from "firebase/firestore";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, updatePassword } from "firebase/auth";
 import './style.css';
 
 const firebaseConfig = {
@@ -1347,13 +1347,19 @@ const LoginView = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isRegister, setIsRegister] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     try {
-      if (isRegister) {
+      if (isForgotPassword) {
+        await sendPasswordResetEmail(auth, email);
+        setMessage('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+      } else if (isRegister) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(cred.user, { displayName: name });
         // Force refresh state via auth listener
@@ -1380,30 +1386,49 @@ const LoginView = () => {
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
       <div className="stat-card" style={{ width: '400px', padding: '3rem', textAlign: 'center' }}>
         <i className="ph-fill ph-shield-check" style={{ fontSize: '3rem', color: 'var(--accent-primary)', marginBottom: '1.5rem' }}></i>
-        <h2 style={{ marginBottom: '2rem' }}>{isRegister ? 'Criar Conta' : 'Login Test Manager'}</h2>
+        <h2 style={{ marginBottom: '2rem' }}>
+          {isForgotPassword ? 'Recuperar Senha' : (isRegister ? 'Criar Conta' : 'Login Test Manager')}
+        </h2>
         {error && <div style={{ color: 'var(--accent-danger)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
+        {message && <div style={{ color: 'var(--accent-success)', marginBottom: '1rem', fontSize: '0.9rem' }}>{message}</div>}
         
-        <button className="btn btn-soft" onClick={handleGoogleLogin} style={{ width: '100%', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444' }}>
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '18px', height: '18px' }} />
-          Continuar com o Google
-        </button>
+        {!isForgotPassword && (
+          <>
+            <button className="btn btn-soft" onClick={handleGoogleLogin} style={{ width: '100%', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444' }}>
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '18px', height: '18px' }} />
+              Continuar com o Google
+            </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', opacity: 0.5 }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
-          <span style={{ fontSize: '0.8rem' }}>OU</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', opacity: 0.5 }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+              <span style={{ fontSize: '0.8rem' }}>OU</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {isRegister && <input type="text" className="form-input" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} required />}
+          {!isForgotPassword && isRegister && <input type="text" className="form-input" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} required />}
           <input type="email" className="form-input" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} required />
-          <input type="password" className="form-input" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required />
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>{isRegister ? 'Cadastrar' : 'Entrar'}</button>
+          {!isForgotPassword && <input type="password" className="form-input" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required />}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+            {isForgotPassword ? 'Enviar E-mail' : (isRegister ? 'Cadastrar' : 'Entrar')}
+          </button>
         </form>
-        <div style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>
-          <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError(''); }} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>
-            {isRegister ? 'Já tenho uma conta' : 'Criar nova conta'}
-          </a>
+        
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
+          {isForgotPassword ? (
+            <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotPassword(false); setError(''); setMessage(''); }} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>Voltar para o Login</a>
+          ) : (
+            <>
+              {!isRegister && (
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotPassword(true); setError(''); setMessage(''); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.8rem' }}>Esqueci minha senha</a>
+              )}
+              <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError(''); setMessage(''); }} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>
+                {isRegister ? 'Já tenho uma conta' : 'Criar nova conta'}
+              </a>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1413,13 +1438,28 @@ const LoginView = () => {
 const ProfileView = () => {
   const { state } = useApp();
   const [name, setName] = useState(state.user?.name || '');
+  const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateProfile(auth.currentUser, { displayName: name });
-      alert('Perfil atualizado com sucesso! Recarregue a página para aplicar em todos os menus.');
+      let updated = false;
+      if (name !== state.user?.name) {
+        await updateProfile(auth.currentUser, { displayName: name });
+        updated = true;
+      }
+      if (newPassword) {
+        await updatePassword(auth.currentUser, newPassword);
+        updated = true;
+        setNewPassword('');
+      }
+      
+      if (updated) {
+        alert('Perfil atualizado com sucesso! Recarregue a página para aplicar em todos os menus.');
+      } else {
+        alert('Nenhuma alteração para salvar.');
+      }
     } catch (e) {
       alert(e.message);
     }
@@ -1433,7 +1473,10 @@ const ProfileView = () => {
         <label className="form-label">Nome de Exibição (Aparece nos Tickets)</label>
         <input className="form-input" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: '1rem' }} />
         <label className="form-label">E-mail</label>
-        <input className="form-input" value={state.user?.email || ''} disabled style={{ marginBottom: '2rem', opacity: 0.5 }} />
+        <input className="form-input" value={state.user?.email || ''} disabled style={{ marginBottom: '1rem', opacity: 0.5 }} />
+        
+        <label className="form-label">Nova Senha (Deixe em branco para manter a atual)</label>
+        <input type="password" className="form-input" placeholder="Digite a nova senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={{ marginBottom: '2rem' }} />
         
         <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
           {loading ? 'Salvando...' : 'Salvar Alterações'}
