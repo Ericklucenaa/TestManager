@@ -26,11 +26,7 @@ const STORAGE_KEY = 'test_manager_v5';
 const AppContext = createContext();
 
 const Logo90Ti = ({ style = {}, className = '' }) => (
-  <svg viewBox="0 0 200 80" style={{ height: '40px', ...style }} className={className} xmlns="http://www.w3.org/2000/svg">
-    <text x="5" y="65" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="72px" fill="#006eb7" letterSpacing="-2">90</text>
-    <rect x="63" y="31" width="14" height="14" fill="#ed6a22" rx="2" />
-    <text x="110" y="65" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="72px" fill="#ed6a22" letterSpacing="-2">Ti</text>
-  </svg>
+  <img src="/logo_90ti.png" alt="90ti Logo" style={{ objectFit: 'contain', ...style }} className={className} />
 );
 
 const AppProvider = ({ children }) => {
