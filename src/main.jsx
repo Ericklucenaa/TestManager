@@ -651,6 +651,10 @@ const TestCases = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [ticketFilter, setTicketFilter] = useState('');
   const [expandedTickets, setExpandedTickets] = useState({});
+  const [draggedTcId, setDraggedTcId] = useState(null);
+  const [dragOverTcId, setDragOverTcId] = useState(null);
+  const [draggedStepIndex, setDraggedStepIndex] = useState(null);
+  const [dragOverStepIndex, setDragOverStepIndex] = useState(null);
 
   const toggleTicket = (ticketId) => {
     setExpandedTickets(prev => ({ ...prev, [ticketId]: !prev[ticketId] }));
@@ -680,6 +684,59 @@ const TestCases = () => {
   });
 
   const addStep = () => setForm({...form, steps: [...form.steps, { action: '', expected: '', status: 'pending', testData: '', actualResult: '', requirementRuleMet: '' }]});
+
+  const handleTcDragStart = (e, tcId) => {
+    setDraggedTcId(tcId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleTcDragEnter = (tcId) => {
+    setDragOverTcId(tcId);
+  };
+  const handleTcDrop = async (ticketId) => {
+    if (!draggedTcId || !dragOverTcId || draggedTcId === dragOverTcId) {
+      setDraggedTcId(null);
+      setDragOverTcId(null);
+      return;
+    }
+    
+    const tcs = [...(groupedTestCases[ticketId] || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const draggedIdx = tcs.findIndex(t => t.id === draggedTcId);
+    const dropIdx = tcs.findIndex(t => t.id === dragOverTcId);
+    
+    if (draggedIdx > -1 && dropIdx > -1) {
+      const draggedItem = tcs.splice(draggedIdx, 1)[0];
+      tcs.splice(dropIdx, 0, draggedItem);
+      
+      const promises = tcs.map((t, index) => 
+        setDoc(doc(db, 'testCases', t.id), { order: index }, { merge: true })
+      );
+      await Promise.all(promises);
+      logAction('Reordenou Casos de Teste', ticketId);
+    }
+    setDraggedTcId(null);
+    setDragOverTcId(null);
+  };
+
+  const handleStepDragStart = (e, index) => {
+    setDraggedStepIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleStepDragEnter = (index) => {
+    setDragOverStepIndex(index);
+  };
+  const handleStepDrop = () => {
+    if (draggedStepIndex === null || dragOverStepIndex === null || draggedStepIndex === dragOverStepIndex) {
+      setDraggedStepIndex(null);
+      setDragOverStepIndex(null);
+      return;
+    }
+    const newSteps = [...form.steps];
+    const draggedItem = newSteps.splice(draggedStepIndex, 1)[0];
+    newSteps.splice(dragOverStepIndex, 0, draggedItem);
+    setForm({ ...form, steps: newSteps });
+    setDraggedStepIndex(null);
+    setDragOverStepIndex(null);
+  };
 
   const openNew = () => {
     setEditingId(null);
@@ -715,7 +772,9 @@ const TestCases = () => {
       logAction('Editou Caso de Teste', editingId);
     } else {
       const id = crypto.randomUUID();
-      await setDoc(doc(db, 'testCases', id), { ...form, id, status: 'Não executado', createdBy: state.user?.name || 'Sistema' });
+      const currentTicketCTs = state.testCases.filter(t => (t.requirementId || 'unlinked') === (form.requirementId || 'unlinked'));
+      const nextOrder = currentTicketCTs.length;
+      await setDoc(doc(db, 'testCases', id), { ...form, id, status: 'Não executado', createdBy: state.user?.name || 'Sistema', order: nextOrder });
       logAction('Criou Caso de Teste', id);
     }
     setModal(false);
@@ -763,8 +822,22 @@ const TestCases = () => {
                        </div>
                      </td>
                    </tr>
-                   {isExpanded && groupedTestCases[ticketId].map(t => (
-                     <tr key={t.id}>
+                   {isExpanded && [...groupedTestCases[ticketId]].sort((a,b) => (a.order || 0) - (b.order || 0)).map(t => (
+                     <tr 
+                       key={t.id}
+                       draggable
+                       onDragStart={(e) => handleTcDragStart(e, t.id)}
+                       onDragEnter={() => handleTcDragEnter(t.id)}
+                       onDragEnd={() => { setDraggedTcId(null); setDragOverTcId(null); }}
+                       onDragOver={(e) => e.preventDefault()}
+                       onDrop={() => handleTcDrop(ticketId)}
+                       style={{ 
+                         cursor: 'grab', 
+                         opacity: draggedTcId === t.id ? 0.5 : 1,
+                         borderTop: dragOverTcId === t.id && draggedTcId !== t.id ? '2px dashed var(--accent-primary)' : 'none',
+                         borderBottom: '1px solid var(--border-color)'
+                       }}
+                     >
                         <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--accent-primary)' }}>{ticket ? ticket.code : '-'}</td>
                         <td style={{ textAlign: 'center', fontWeight: 600 }}>{t.title}</td>
                         <td style={{ textAlign: 'center' }}><Badge>{t.priority}</Badge></td>
@@ -889,7 +962,27 @@ const TestCases = () => {
             <div style={{ marginBottom: '1rem' }}>
               <label className="form-label">Passos do Teste</label>
               {form.steps.map((st, i) => (
-                <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <div 
+                  key={i} 
+                  draggable
+                  onDragStart={(e) => handleStepDragStart(e, i)}
+                  onDragEnter={() => handleStepDragEnter(i)}
+                  onDragEnd={() => { setDraggedStepIndex(null); setDragOverStepIndex(null); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleStepDrop}
+                  style={{ 
+                    display: 'flex', 
+                    gap: '0.5rem', 
+                    marginBottom: '0.5rem',
+                    alignItems: 'center',
+                    cursor: 'grab',
+                    opacity: draggedStepIndex === i ? 0.5 : 1,
+                    borderTop: dragOverStepIndex === i && draggedStepIndex !== i ? '2px dashed var(--accent-primary)' : 'none',
+                    padding: '0.25rem 0',
+                    transition: 'border 0.2s'
+                  }}
+                >
+                  <i className="ph ph-dots-six-vertical" style={{ color: 'var(--text-muted)', cursor: 'grab', fontSize: '1.2rem' }}></i>
                   <input className="form-input" placeholder="Ação" value={st.action} onChange={e => { const steps = [...form.steps]; steps[i].action = e.target.value; setForm({...form, steps}); }} />
                   <input className="form-input" placeholder="Esperado" value={st.expected} onChange={e => { const steps = [...form.steps]; steps[i].expected = e.target.value; setForm({...form, steps}); }} />
                   <button type="button" className="btn btn-danger" onClick={() => { const steps = form.steps.filter((_, idx) => idx !== i); setForm({...form, steps}); }} style={{ padding: '0.5rem' }} title="Remover Passo"><i className="ph ph-trash"></i></button>
