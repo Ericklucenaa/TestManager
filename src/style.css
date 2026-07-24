@@ -429,4 +429,22 @@ h1, h2, h3, h4, h5 {
     overflow: visible !important;
     display: block !important;
   }
+  .evidence-container {
+    display: block !important;
+  }
+  .evidence-wrapper {
+    display: block !important;
+    margin-bottom: 2rem !important;
+    text-align: center;
+    page-break-inside: avoid;
+  }
+  .evidence-img {
+    max-height: 800px !important;
+    max-width: 100% !important;
+    height: auto !important;
+    width: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
+    object-fit: contain !important;
+  }
 }

@@ -1027,9 +1027,9 @@ const TestCases = () => {
                               </div>
                             )}
                             {st.evidences && st.evidences.length > 0 && (
-                              <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <div className="evidence-container" style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 {st.evidences.map((ev, evIdx) => (
-                                  <img key={evIdx} src={ev} alt="Evidência" onClick={() => setFullScreenImage(ev)} style={{ maxHeight: '80px', borderRadius: '4px', cursor: 'pointer', border: '1px solid var(--border-color)' }} title="Ampliar" />
+                                  <img key={evIdx} src={ev} alt="Evidência" className="evidence-img" onClick={() => setFullScreenImage(ev)} style={{ maxHeight: '80px', borderRadius: '4px', cursor: 'pointer', border: '1px solid var(--border-color)' }} title="Ampliar" />
                                 ))}
                               </div>
                             )}
@@ -1263,10 +1263,10 @@ const Runner = () => {
                 <input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(i, e)} style={{ display: 'block', marginBottom: '0.5rem' }} />
                 
                 {st.evidences && st.evidences.length > 0 && (
-                  <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  <div className="evidence-container" style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     {st.evidences.map((ev, evIdx) => (
-                      <div key={evIdx} style={{ position: 'relative' }}>
-                        <img src={ev} alt="Evidência" style={{ maxHeight: '150px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }} onClick={() => setFullScreenImage(ev)} title="Clique para ampliar" />
+                      <div key={evIdx} className="evidence-wrapper" style={{ position: 'relative' }}>
+                        <img src={ev} alt="Evidência" className="evidence-img" style={{ maxHeight: '150px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }} onClick={() => setFullScreenImage(ev)} title="Clique para ampliar" />
                         <button className="btn btn-danger" onClick={() => removeEvidence(i, evIdx)} style={{ position: 'absolute', top: '-8px', right: '-8px', padding: '0.4rem', borderRadius: '50%', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Remover Foto"><i className="ph ph-trash" style={{ fontSize: '1rem' }}></i></button>
                       </div>
                     ))}
