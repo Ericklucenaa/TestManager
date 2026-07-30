@@ -1078,7 +1078,13 @@ const Runner = () => {
       const saved = localStorage.getItem(`test_manager_runner_${tc.id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.length === tc.steps.length) return parsed;
+        if (parsed.length === tc.steps.length) {
+          return parsed.map((p, i) => ({
+            ...p,
+            action: tc.steps[i].action,
+            expected: tc.steps[i].expected
+          }));
+        }
         localStorage.removeItem(`test_manager_runner_${tc.id}`);
       }
     } catch (e) {}
