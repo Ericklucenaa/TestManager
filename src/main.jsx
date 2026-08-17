@@ -244,32 +244,25 @@ const Dashboard = () => {
   const { state } = useApp();
   return (
     <div className="animate-fade">
-      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h4 style={{ color: 'var(--text-secondary)' }}>CASOS DE TESTE</h4>
-            <i className="ph ph-test-tube" style={{ color: 'var(--accent-primary)' }}></i>
-          </div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginTop: '0.5rem' }}>{state.testCases.length}</div>
+      <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', padding: '1rem 0', borderBottom: '1px solid var(--border-color)' }}>
+        <div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Casos de Teste</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.2rem' }}>{state.testCases.length}</div>
         </div>
-        <div className="stat-card">
-           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h4 style={{ color: 'var(--text-secondary)' }}>BUGS ATIVOS</h4>
-            <i className="ph ph-bug-beetle" style={{ color: 'var(--accent-danger)' }}></i>
-          </div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginTop: '0.5rem', color: 'var(--accent-danger)' }}>
+        <div style={{ width: '1px', background: 'var(--border-color)' }}></div>
+        <div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Bugs Ativos</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--accent-danger)', marginTop: '0.2rem' }}>
             {state.bugs.filter(b => {
               const tc = state.testCases.find(t => t.id === b.caseId);
               return b.status === 'Aberto' && tc && tc.status === 'Reprovado';
             }).length}
           </div>
         </div>
-        <div className="stat-card">
-           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h4 style={{ color: 'var(--text-secondary)' }}>TICKETS</h4>
-            <i className="ph ph-ticket" style={{ color: 'var(--accent-info)' }}></i>
-          </div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginTop: '0.5rem' }}>{state.requirements.length}</div>
+        <div style={{ width: '1px', background: 'var(--border-color)' }}></div>
+        <div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Tickets</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.2rem' }}>{state.requirements.length}</div>
         </div>
       </div>
       
@@ -374,7 +367,7 @@ const Requirements = () => {
           {uniqueTeams.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
-      <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--surface-solid)' }}>
         <table className="data-table">
           <thead><tr><th>Código</th><th>Título</th><th>Descrição</th><th>Equipe</th><th>Criador</th><th style={{ textAlign: 'right' }}>Ações</th></tr></thead>
           <tbody>
@@ -525,12 +518,12 @@ const TicketDropdown = ({ requirements, value, onChange }) => {
         onChange={e => { setSearch(e.target.value); setIsOpen(true); if (value) onChange(''); }}
         onFocus={() => { setIsOpen(true); setSearch(''); }}
         onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-        style={{ color: 'white', borderColor: 'var(--accent-secondary)', backgroundColor: 'var(--accent-secondary)', fontWeight: 'bold', cursor: 'pointer', paddingRight: '2rem' }}
+        style={{ cursor: 'pointer', paddingRight: '2rem', fontWeight: value ? '600' : 'normal' }}
       />
       {value ? (
-        <i className="ph ph-x" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }} onClick={() => { onChange(''); setSearch(''); }}></i>
+        <i className="ph ph-x" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => { onChange(''); setSearch(''); }}></i>
       ) : (
-        <i className="ph ph-caret-down" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.8)', pointerEvents: 'none' }}></i>
+        <i className="ph ph-caret-down" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }}></i>
       )}
       
       {isOpen && (
@@ -795,7 +788,7 @@ const TestCases = () => {
           <i className="ph ph-list-plus"></i> {Object.keys(groupedTestCases).length > 0 && Object.keys(groupedTestCases).every(key => expandedTickets[key]) ? 'Recolher Todos' : 'Expandir Todos'}
         </button>
       </div>
-      <div className="stat-card" style={{ padding: 0, overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--surface-solid)' }}>
         <table className="data-table">
           <thead>
             <tr>
@@ -814,7 +807,7 @@ const TestCases = () => {
                const isExpanded = expandedTickets[ticketId];
                return (
                  <React.Fragment key={ticketId}>
-                    <tr style={{ cursor: 'pointer', background: 'var(--accent-secondary)', color: 'white', fontWeight: 'bold' }} onClick={() => toggleTicket(ticketId)}>
+                    <tr className="group-row" style={{ cursor: 'pointer' }} onClick={() => toggleTicket(ticketId)}>
                       <td colSpan="6" style={{ padding: '0.5rem', textAlign: 'left' }}>
                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.5rem' }}>
                          <i className={`ph ph-caret-${isExpanded ? 'down' : 'right'}`}></i>
@@ -1319,7 +1312,7 @@ const Bugs = () => {
         </div>
       </div>
       
-      <div className="stat-card" style={{ padding: 0, marginTop: '2rem' }}>
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--surface-solid)', marginTop: '2rem' }}>
         <table className="data-table">
           <thead><tr><th>Ticket</th><th>Título</th><th>Tempo Execução</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
